@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en">
+    {% load static %}
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Campfire</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+<script>
+  // fallback in case the primary CDN is blocked in this webview
+  if (typeof THREE === 'undefined') {
+    document.write('<script src="https://unpkg.com/three@0.150.1/build/three.min.js"><\/script>');
+  }
+</script>
+<style>
+  :root{
+    --panel-bg: rgba(15,13,20,0.72);
+    --panel-border: rgba(255,255,255,0.08);
+    --ember: #ff7a3d;
+    --ember-soft: #ffb37a;
+    --ok-green: #3ddc84;
+    --leave-red: #e2473d;
+    --text-dim: #9b96a8;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    background:#05060a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow:hidden;
+    color:#fff;
+  }
+  #scene{ position:fixed; inset:0; width:100%; height:100%; display:block; }
+
+  #overlay{ position:fixed; inset:0; pointer-events:none; }
+  #overlay > *{ pointer-events:auto; }
+
+  /* top-left info panel */
+  #info-panel{
+    position:absolute; top:14px; left:14px;
+    background:var(--panel-bg); border:1px solid var(--panel-border);
+    border-radius:14px; padding:10px 14px;
+    backdrop-filter: blur(10px);
+    min-width:150px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.35);
+  }
+  .info-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:4px 0; }
+  .info-label{ font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em; }
+  .info-value{ font-size:14px; font-weight:600; }
+  #copy-btn{
+    background:rgba(255,255,255,0.08); border:none; color:#fff; border-radius:8px;
+    width:24px; height:24px; font-size:12px; cursor:pointer; flex-shrink:0;
+  }
+  .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:5px; background:#5b5566; }
+  .dot.green{ background:var(--ok-green); box-shadow:0 0 8px var(--ok-green); }
+  .dot.red{ background:var(--leave-red); }
+
+  /* top-right controls */
+  #top-controls{ position:absolute; top:14px; right:14px; display:flex; gap:10px; }
+  .round-btn{
+    width:42px; height:42px; border-radius:50%; border:1px solid var(--panel-border);
+    background:var(--panel-bg); backdrop-filter:blur(10px); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; color:#fff;
+    box-shadow:0 8px 20px rgba(0,0,0,0.3);
+  }
+  .round-btn svg{ width:19px; height:19px; }
+  .round-btn.active{ background:rgba(61,220,132,0.18); border-color:rgba(61,220,132,0.4); color:var(--ok-green); }
+  .round-btn.off{ background:rgba(226,71,61,0.18); border-color:rgba(226,71,61,0.4); color:var(--leave-red); }
+  #leave-btn{ background:rgba(226,71,61,0.22); border-color:rgba(226,71,61,0.45); color:#ff8b82; }
+
+  /* avatar name labels */
+  .avatar-label{
+    position:absolute; transform:translate(-50%,-100%); text-align:center;
+    font-size:12px; font-weight:600; white-space:nowrap; pointer-events:none;
+    text-shadow:0 2px 6px rgba(0,0,0,0.8);
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+  }
+  .avatar-label .name-row{ display:flex; align-items:center; gap:4px; }
+  .you-tag{ background:var(--ok-green); color:#06210f; font-size:9px; font-weight:700;
+    padding:1px 5px; border-radius:6px; }
+  .bars{ display:flex; align-items:flex-end; gap:1.5px; height:9px; opacity:0; transition:opacity .15s; }
+  .bars.speaking{ opacity:1; }
+  .bars span{ width:2.5px; background:var(--ok-green); border-radius:1px; animation:bar 0.9s infinite ease-in-out; }
+  .bars span:nth-child(1){ height:40%; animation-delay:0s; }
+  .bars span:nth-child(2){ height:100%; animation-delay:.15s; }
+  .bars span:nth-child(3){ height:65%; animation-delay:.3s; }
+  @keyframes bar{ 0%,100%{ transform:scaleY(0.4); } 50%{ transform:scaleY(1); } }
+
+  .speech-bubble{
+    position:absolute; transform:translate(-50%,-100%); pointer-events:none;
+    background:#fff; color:#15131c; padding:6px 10px; border-radius:12px;
+    font-size:12.5px; font-weight:500; max-width:160px; line-height:1.25;
+    box-shadow:0 6px 16px rgba(0,0,0,0.35);
+    opacity:0; transition:opacity .2s, transform .2s;
+  }
+  .speech-bubble::after{
+    content:""; position:absolute; left:50%; bottom:-5px; transform:translateX(-50%);
+    border-width:6px 6px 0 6px; border-style:solid; border-color:#fff transparent transparent transparent;
+  }
+  .speech-bubble.show{ opacity:1; }
+
+  /* chat panel */
+  #chat-panel{
+    position:absolute; right:14px; bottom:84px; top:auto;
+    width:min(260px, 42vw); max-height:46vh;
+    background:var(--panel-bg); border:1px solid var(--panel-border);
+    border-radius:16px; backdrop-filter:blur(10px);
+    display:flex; flex-direction:column; overflow:hidden;
+    box-shadow:0 10px 28px rgba(0,0,0,0.35);
+  }
+  #chat-log{ flex:1; overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
+  #chat-log::-webkit-scrollbar{ width:4px; }
+  #chat-log::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.15); border-radius:4px; }
+  .msg{ font-size:12.5px; line-height:1.35; }
+  .msg .who{ font-weight:700; margin-right:5px; }
+  .msg .time{ color:var(--text-dim); font-size:10px; margin-left:5px; }
+  .msg.system{ color:var(--text-dim); font-style:italic; font-size:11.5px; }
+
+  /* message input */
+  #input-bar{
+    position:absolute; left:14px; bottom:14px;
+    width:min(360px, calc(100% - 28px));
+    display:flex; gap:8px; align-items:center;
+    background:var(--panel-bg); border:1px solid var(--panel-border);
+    border-radius:24px; padding:6px 6px 6px 16px; backdrop-filter:blur(10px);
+    box-shadow:0 10px 28px rgba(0,0,0,0.35);
+  }
+  #msg-input{
+    flex:1; background:transparent; border:none; outline:none; color:#fff;
+    font-size:14px; padding:8px 0;
+  }
+  #msg-input::placeholder{ color:var(--text-dim); }
+  #send-btn{
+    width:36px; height:36px; border-radius:50%; border:none; cursor:pointer;
+    background:var(--ember); color:#1a0e06; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #send-btn svg{ width:16px; height:16px; }
+
+  #boot-screen{
+    position:fixed; inset:0; background:#05060a; z-index:50;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; transition:opacity .5s;
+  }
+  #boot-screen .flame{ font-size:38px; animation:flicker 1.4s infinite; }
+  @keyframes flicker{ 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:.7; transform:scale(.92); } }
+  #boot-screen .label{ color:var(--text-dim); font-size:13px; letter-spacing:.04em; }
+
+  /* join overlay */
+  #join-overlay{
+    position:absolute; left:50%; bottom:14%; transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+  }
+  #join-btn{
+    display:flex; align-items:center; gap:10px;
+    background:linear-gradient(135deg, var(--ember), #c2461f);
+    color:#1c0d04; border:none; border-radius:30px;
+    padding:14px 26px; font-size:15px; font-weight:700;
+    cursor:pointer; box-shadow:0 10px 30px rgba(255,122,61,0.4), 0 0 0 1px rgba(255,255,255,0.15) inset;
+    animation:joinPulse 2.4s infinite;
+  }
+  #join-btn:disabled{ opacity:0.7; cursor:default; animation:none; }
+  #join-btn .join-flame{ font-size:18px; animation:flicker 1.4s infinite; }
+  @keyframes joinPulse{
+    0%,100%{ box-shadow:0 10px 30px rgba(255,122,61,0.4), 0 0 0 1px rgba(255,255,255,0.15) inset; }
+    50%{ box-shadow:0 10px 38px rgba(255,122,61,0.65), 0 0 0 1px rgba(255,255,255,0.25) inset; }
+  }
+  #join-hint{ color:var(--text-dim); font-size:11.5px; letter-spacing:.03em; }
+
+  /* visibility states: hidden until connected, join button hidden after */
+  body:not(.connected) #chat-panel,
+  body:not(.connected) #input-bar,
+  body:not(.connected) #mic-btn,
+  body:not(.connected) #leave-btn{ display:none; }
+  body.connected #join-overlay{ display:none; }
+</style>
+</head>
+<body>
+
+<!-- Django renders this into a hidden input with name="csrfmiddlewaretoken" -->
+{% csrf_token %}
+
+<div id="boot-screen">
+  <div class="flame">🔥</div>
+  <div class="label">gathering around the fire…</div>
+</div>
+
+<canvas id="scene"></canvas>
+
+<!-- ⚠️ Swap this src for the real URL of the file you hosted -->
+<audio id="ambience-audio" loop preload="auto" src="{% static 'audio/5_MINUTES_FIRE_CRACKLING_RELAXING_SOUND_NO_MUSIC_NATURE_SOUND_CAMPING.mp3' %}"></audio>
+
+<div id="overlay"
+  <div id="info-panel">
+    <div class="info-row">
+      <span class="info-label">Camp ID</span>
+    </div>
+    <div class="info-row">
+      <span class="info-value" id="room-id">—</span>
+      <button id="copy-btn" title="Copy">⧉</button>
+    </div>
+    <div class="info-row">
+      <span class="info-label">People</span>
+      <span class="info-value" id="people-count">0/5</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label"><span class="dot" id="voice-dot"></span>Voice</span>
+      <span class="info-value" id="voice-status">—</span>
+    </div>
+  </div>
+
+  <div id="top-controls">
+    <button class="round-btn off" id="ambient-btn" title="Ambient sound">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+    </button>
+    <button class="round-btn off" id="mic-btn" title="Microphone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+    </button>
+    <button class="round-btn active" id="speaker-btn" title="Speaker">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+    </button>
+    <button class="round-btn" id="leave-btn" title="Leave camp">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    </button>
+  </div>
+
+  <div id="join-overlay">
+    <button id="join-btn">
+      <span class="join-flame">🔥</span>
+      <span id="join-label">Join the Campfire</span>
+    </button>
+    <div id="join-hint">5 people max · voice + text</div>
+  </div>
+
+  <div id="chat-panel">
+    <div id="chat-log"></div>
+  </div>
+
+  <div id="input-bar">
+    <input id="msg-input" type="text" placeholder="Type a message…" maxlength="200">
+    <button id="send-btn">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   TELEGRAM MINI APP BOOTSTRAP
+   On launch, Telegram injects the user's data into the page via
+   window.Telegram.WebApp. We grab it and forward it to our own
+   backend at "/" so the server can validate initData (HMAC check
+   with your bot token) and place this user into a camp of 5.
+   ============================================================ */
+const tg = window.Telegram ? window.Telegram.WebApp : null;
+let tgUser = null;
+
+if (tg) {
+  tg.ready();
+  tg.expand();
+  try { tg.setHeaderColor('#05060a'); tg.setBackgroundColor('#05060a'); } catch(e) {}
+  tgUser = tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
+}
+
+// Django note: the {% csrf_token %} tag above renders a hidden
+// <input name="csrfmiddlewaretoken"> — that's the primary source.
+// We fall back to the csrftoken cookie if that input isn't present
+// for any reason (e.g. CDN-cached static HTML served outside Django).
+function getCsrfToken(){
+  const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+  if (input && input.value) return input.value;
+  const match = document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)');
+  return match ? decodeURIComponent(match.pop()) : '';
+}
+
+async function reportToServer() {
+  if (!tg) return null;
+  try {
+    const res = await fetch('', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken(),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        initData: tg.initData,
+        user: tgUser,
+        platform: tg.platform,
+        ts: Date.now()
+      })
+    });
+    if (res.ok) return await res.json().catch(() => null);
+  } catch (e) {
+    console.warn('Could not reach backend, falling back to local demo mode:', e);
+  }
+  return null;
+}
+
+const myName = (tgUser && (tgUser.first_name || tgUser.username)) || 'You';
+
+/* ============================================================
+   ROOM / MATCHMAKING
+   In production, your backend assigns this device to one of many
+   5-person camps and returns { roomId, members:[...] } from the
+   POST above (or over a WebSocket once joined). This file is
+   wired to consume that shape — see applyRoomState(). Since this
+   is a static single-file demo with no server attached, we fall
+   back to a local simulation so the scene is fully alive on its
+   own. Swap simulateRoom() for your real socket/HTTP response.
+   ============================================================ */
+const NAME_POOL = ['Alice','Bob','Emma','Leo','Theo','Otto','Rita','Jo','Elin','Santa'];
+const COLOR_POOL = ['#e07a5f','#3d8bdc','#e8b730','#5fb878','#b070d8','#dc6f9b','#56c9c9','#d98a3d'];
+let ROOM = { id: null, members: [] };
+
+function randomId(){
+  const part = () => Math.random().toString(36).slice(2,6);
+  return `camp-${part()}`;
+}
+
+function simulateRoom(){
+  const pool = NAME_POOL.filter(n => n.toLowerCase() !== myName.toLowerCase());
+  const others = [];
+  const count = 4; // fill the other 4 seats
+  for (let i=0;i<count;i++){
+    const idx = Math.floor(Math.random()*pool.length);
+    const name = pool.splice(idx,1)[0];
+    others.push({ id:'demo-'+i, name, color: COLOR_POOL[i % COLOR_POOL.length], isYou:false });
+  }
+  ROOM = {
+    id: randomId(),
+    members: [{ id:'me', name: myName, color:'#7fd6ff', isYou:true }, ...others]
+  };
+  return ROOM;
+}
+
+// Pre-join background ambiance: all 5 seats filled with demo people,
+// nobody tagged "YOU" yet, just to keep the camp from looking empty
+// while the person is staring at the Join button.
+function simulatePreviewRoom(){
+  const pool = [...NAME_POOL];
+  const members = [];
+  for (let i=0;i<5;i++){
+    const idx = Math.floor(Math.random()*pool.length);
+    const name = pool.splice(idx,1)[0];
+    members.push({ id:'preview-'+i, name, color: COLOR_POOL[i % COLOR_POOL.length], isYou:false });
+  }
+  return { id: randomId(), members };
+}
+
+function applyRoomState(state){
+  ROOM = state;
+  document.getElementById('room-id').textContent = ROOM.id;
+  document.getElementById('people-count').textContent = `${ROOM.members.length}/5`;
+}
+
+/* ============================================================
+   WEBSOCKET — actual matchmaking connection.
+   Tries to connect to your Django Channels endpoint at /ws/campfire/.
+   On open it sends a 'join' message with the Telegram user/initData;
+   your backend verifies it, places this device in a camp of up to 5,
+   and replies with a 'room_state' message of shape:
+     { type:'room_state', roomId:'camp-xxxx', members:[{id,name,color,isYou}] }
+   After that, 'chat' / 'member_joined' / 'member_left' messages keep
+   the room in sync. If no backend is reachable, we fall back to a
+   local simulated camp so the demo still feels alive on its own.
+   ============================================================ */
+let ws = null;
+let connected = false;
+
+function wsUrl(){
+  const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  return `${proto}${location.host}/ws/campfire/`;
+}
+
+function connectWebSocket(){
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = ok => { if (!settled){ settled = true; clearTimeout(timer); resolve(ok); } };
+    const timer = setTimeout(() => finish(false), 4000);
+
+    let socket;
+    try { socket = new WebSocket(wsUrl()); }
+    catch(e){ finish(false); return; }
+    ws = socket;
+
+    socket.addEventListener('open', () => {
+      socket.send(JSON.stringify({ type:'join', user: tgUser, initData: tg ? tg.initData : null }));
+    });
+
+    socket.addEventListener('message', evt => {
+      let data;
+      try { data = JSON.parse(evt.data); } catch(e){ return; }
+
+      if (data.type === 'room_state' && data.roomId && data.members){
+        applyRoomState({ id: data.roomId, members: data.members });
+        finish(true);
+      } else if (data.type === 'chat'){
+        const member = ROOM.members.find(m => m.id === data.memberId);
+        if (member) broadcastMessage(member, data.text);
+      } else if (data.type === 'member_joined'){
+        pushMessage({ system:true, text:`${data.name} joined the camp` });
+      } else if (data.type === 'member_left'){
+        pushMessage({ system:true, text:`${data.name} left the camp` });
+      } else if (data.type === 'speaking'){
+        setSpeaking(data.memberId, !!data.on);
+      }
+    });
+
+    socket.addEventListener('close', () => {
+      if (connected){
+        connected = false;
+        autoRotate = true;
+        document.body.classList.remove('connected');
+        pushMessage({ system:true, text:'Disconnected from the camp.' });
+        document.getElementById('join-label').textContent = 'Rejoin the Campfire';
+        document.getElementById('join-btn').disabled = false;
+      }
+      finish(false);
+    });
+
+    socket.addEventListener('error', () => finish(false));
+  });
+}
+
+function sendChatOverSocket(text){
+  if (ws && ws.readyState === WebSocket.OPEN){
+    ws.send(JSON.stringify({ type:'chat', text }));
+  }
+}
+
+/* ============================================================
+   THREE.JS SCENE
+   ============================================================ */
+if (typeof THREE === 'undefined') {
+  document.getElementById('boot-screen').querySelector('.label').textContent =
+    '3D library failed to load — check your internet connection and reload.';
+  document.getElementById('boot-screen').querySelector('.flame').textContent = '⚠️';
+  throw new Error('THREE failed to load from all CDNs');
+}
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05060f);
+scene.fog = new THREE.FogExp2(0x05060f, 0.035);
+
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth/window.innerHeight, 0.1, 100);
+function setCamera(){
+  camera.position.set(0, 9, 11.5);
+  camera.lookAt(0, 0.6, 0);
+}
+setCamera();
+
+function resize(){
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- lighting ---
+const moon = new THREE.DirectionalLight(0x6f8fdc, 0.35);
+moon.position.set(-8, 12, -6);
+moon.castShadow = true;
+moon.shadow.mapSize.set(1024,1024);
+scene.add(moon);
+scene.add(new THREE.AmbientLight(0x2b3a66, 0.55));
+
+const fireLight = new THREE.PointLight(0xff7a30, 4.2, 14, 2);
+fireLight.position.set(0, 1.1, 0);
+fireLight.castShadow = true;
+scene.add(fireLight);
+
+const lanternLight = new THREE.PointLight(0xffb066, 1.1, 5, 2);
+lanternLight.position.set(-4.6, 0.9, 3.6);
+scene.add(lanternLight);
+
+// --- ground ---
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(16, 48),
+  new THREE.MeshStandardMaterial({ color:0x1c2640, roughness:1 })
+);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const dirt = new THREE.Mesh(
+  new THREE.CircleGeometry(3.6, 36),
+  new THREE.MeshStandardMaterial({ color:0x3a2c20, roughness:1 })
+);
+dirt.rotation.x = -Math.PI/2;
+dirt.position.y = 0.01;
+dirt.receiveShadow = true;
+scene.add(dirt);
+
+// --- fire pit ring of stones ---
+const stoneMat = new THREE.MeshStandardMaterial({ color:0x6b6b76, roughness:0.9, flatShading:true });
+for (let i=0;i<14;i++){
+  const a = (i/14)*Math.PI*2;
+  const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.16+Math.random()*0.05,0), stoneMat);
+  s.position.set(Math.cos(a)*0.95, 0.08, Math.sin(a)*0.95);
+  s.rotation.set(Math.random(),Math.random(),Math.random());
+  s.castShadow = true;
+  scene.add(s);
+}
+
+// --- logs ---
+const logMat = new THREE.MeshStandardMaterial({ color:0x4a2f1d, roughness:1, flatShading:true });
+function makeLog(rot){
+  const log = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.12,1.3,8), logMat);
+  log.rotation.z = Math.PI/2;
+  log.rotation.y = rot;
+  log.position.y = 0.18;
+  log.castShadow = true;
+  return log;
+}
+[0,0.7,1.4,2.1].forEach(r => scene.add(makeLog(r)));
+
+// --- fire (layered sprites + glow) ---
+const fireGroup = new THREE.Group();
+fireGroup.position.set(0,0.25,0);
+scene.add(fireGroup);
+function fireTexture(){
+  const c = document.createElement('canvas'); c.width=64; c.height=64;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(32,32,2,32,32,32);
+  g.addColorStop(0,'rgba(255,230,180,1)');
+  g.addColorStop(0.4,'rgba(255,140,40,0.9)');
+  g.addColorStop(1,'rgba(255,80,20,0)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,64,64);
+  return new THREE.CanvasTexture(c);
+}
+const flameTex = fireTexture();
+const flames = [];
+for (let i=0;i<10;i++){
+  const mat = new THREE.SpriteMaterial({ map:flameTex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false });
+  const spr = new THREE.Sprite(mat);
+  const sc = 0.4+Math.random()*0.4;
+  spr.scale.set(sc, sc*1.4, 1);
+  spr.position.set((Math.random()-0.5)*0.3, Math.random()*0.6, (Math.random()-0.5)*0.3);
+  spr.userData.speed = 0.6+Math.random()*0.6;
+  spr.userData.offset = Math.random()*Math.PI*2;
+  fireGroup.add(spr);
+  flames.push(spr);
+}
+
+// --- rocks scattered ---
+for (let i=0;i<10;i++){
+  const a = Math.random()*Math.PI*2, r = 5.5+Math.random()*5;
+  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.3+Math.random()*0.4,0), stoneMat);
+  rock.position.set(Math.cos(a)*r, 0.2, Math.sin(a)*r);
+  rock.rotation.set(Math.random(),Math.random(),Math.random());
+  rock.castShadow = true; rock.receiveShadow = true;
+  scene.add(rock);
+}
+
+// --- pine trees ---
+function makeTree(){
+  const g = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.12,0.6,6), new THREE.MeshStandardMaterial({color:0x2a1f17, flatShading:true}));
+  trunk.position.y = 0.3; trunk.castShadow=true; g.add(trunk);
+  const leafMat = new THREE.MeshStandardMaterial({ color:0x14302a, flatShading:true });
+  for (let i=0;i<3;i++){
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.55-i*0.13, 0.9, 7), leafMat);
+    cone.position.y = 0.65 + i*0.55;
+    cone.castShadow = true;
+    g.add(cone);
+  }
+  return g;
+}
+for (let i=0;i<16;i++){
+  const a = Math.random()*Math.PI*2, r = 9+Math.random()*5.5;
+  const tree = makeTree();
+  tree.position.set(Math.cos(a)*r, 0, Math.sin(a)*r);
+  const s = 0.8+Math.random()*0.8;
+  tree.scale.set(s,s,s);
+  scene.add(tree);
+}
+
+// --- mountain ranges (layered for depth, far ones hazier/bluer) ---
+function makeMountainRange(radius, height, color, count, snowCapped){
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color, flatShading:true, roughness:1 });
+  const snowMat = new THREE.MeshStandardMaterial({ color:0xe7edf8, flatShading:true, emissive:0x2a3a66, emissiveIntensity:0.25, roughness:0.9 });
+  for (let i=0;i<count;i++){
+    const a = (i/count)*Math.PI*2 + (Math.random()-0.5)*0.25;
+    const h = height * (0.55 + Math.random()*0.8);
+    const w = h * (0.85 + Math.random()*0.55);
+    const peak = new THREE.Mesh(new THREE.ConeGeometry(w, h, 5), mat);
+    const y = h/2 - 0.6;
+    peak.position.set(Math.cos(a)*radius, y, Math.sin(a)*radius);
+    peak.rotation.y = Math.random()*Math.PI;
+    g.add(peak);
+    if (snowCapped && Math.random() > 0.35){
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(w*0.42, h*0.34, 5), snowMat);
+      cap.position.set(peak.position.x, y + h*0.4, peak.position.z);
+      cap.rotation.y = peak.rotation.y;
+      g.add(cap);
+    }
+  }
+  return g;
+}
+scene.add(makeMountainRange(30, 9.5, 0x18233f, 20, true));   // far range — hazy, moonlit snowcaps
+scene.add(makeMountainRange(23, 6.2, 0x10172c, 17, false));  // near range — darker silhouette
+
+// --- moon glow ---
+function makeMoon(){
+  const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+  const ctx = c.getContext('2d');
+  const grad = ctx.createRadialGradient(80,80,4,80,80,80);
+  grad.addColorStop(0, 'rgba(255,255,248,1)');
+  grad.addColorStop(0.35, 'rgba(225,235,255,0.55)');
+  grad.addColorStop(1, 'rgba(225,235,255,0)');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,160,160);
+  const tex = new THREE.CanvasTexture(c);
+  const mat = new THREE.SpriteMaterial({ map:tex, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending });
+  const spr = new THREE.Sprite(mat);
+  spr.scale.set(7,7,1);
+  spr.position.set(-15, 17, -19);
+  return spr;
+}
+scene.add(makeMoon());
+
+// --- stars ---
+function makeStars(){
+  const count = 220;
+  const positions = new Float32Array(count*3);
+  for (let i=0;i<count;i++){
+    const a = Math.random()*Math.PI*2;
+    const r = 32 + Math.random()*16;
+    const y = 7 + Math.random()*17;
+    positions[i*3] = Math.cos(a)*r;
+    positions[i*3+1] = y;
+    positions[i*3+2] = Math.sin(a)*r;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const mat = new THREE.PointsMaterial({ color:0xffffff, size:0.14, transparent:true, opacity:0.8, sizeAttenuation:true });
+  return new THREE.Points(geo, mat);
+}
+scene.add(makeStars());
+
+// --- tents ---
+function makeTent(color){
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color, roughness:0.95, flatShading:true });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0,0.95,1.15,4), mat);
+  body.rotation.y = Math.PI/4;
+  body.position.y = 0.58;
+  body.castShadow = true; body.receiveShadow = true;
+  g.add(body);
+  const doorMat = new THREE.MeshStandardMaterial({ color:0x10141c, roughness:1 });
+  const door = new THREE.Mesh(new THREE.ConeGeometry(0.32,0.55,3), doorMat);
+  door.position.set(0,0.3,0.62);
+  door.rotation.y = Math.PI;
+  g.add(door);
+  return g;
+}
+const tentColors = [0x3a4f8c,0x2f6f63,0x6b3f5c,0x3f5c6b];
+const tentSpots = [[-6.4,-2.2],[6.6,-2.4],[-5.6,3.0],[6.0,3.4],[-7.4,1.2],[7.4,0.6]];
+tentSpots.forEach((p,i)=>{
+  const t = makeTent(tentColors[i % tentColors.length]);
+  t.position.set(p[0],0,p[1]);
+  t.rotation.y = Math.random()*Math.PI*2;
+  t.scale.setScalar(0.9+Math.random()*0.4);
+  scene.add(t);
+});
+
+// --- lantern + boombox props ---
+function makeLantern(){
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,0.05,8), new THREE.MeshStandardMaterial({color:0x2a2a2a}));
+  g.add(base);
+  const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.22,8), new THREE.MeshStandardMaterial({color:0xffcf8a, emissive:0xffaa44, emissiveIntensity:1.4, transparent:true, opacity:0.85}));
+  glass.position.y = 0.16;
+  g.add(glass);
+  const top = new THREE.Mesh(new THREE.ConeGeometry(0.1,0.1,8), new THREE.MeshStandardMaterial({color:0x2a2a2a}));
+  top.position.y = 0.32;
+  g.add(top);
+  return g;
+}
+const lantern = makeLantern();
+lantern.position.set(-4.6,0.1,3.6);
+scene.add(lantern);
+
+function makeBoombox(){
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color:0x222226, flatShading:true });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.34,0.22), mat);
+  body.position.y = 0.2; body.castShadow = true;
+  g.add(body);
+  const spkMat = new THREE.MeshStandardMaterial({ color:0x111114 });
+  [-0.22,0.22].forEach(x=>{
+    const spk = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.04,12), spkMat);
+    spk.rotation.x = Math.PI/2; spk.position.set(x,0.2,0.12);
+    g.add(spk);
+  });
+  return g;
+}
+const boombox = makeBoombox();
+boombox.position.set(2.4,0.18,-1.6);
+boombox.rotation.y = 0.4;
+scene.add(boombox);
+
+/* ============================================================
+   SEATS + CHIBI AVATARS (replicating the reference: stumps, low
+   chairs, a folding camp chair, a rocking chair, around the fire)
+   ============================================================ */
+const SEAT_DEFS = [
+  { angle: 200, dist: 1.95, type:'stump' },
+  { angle: 270, dist: 2.0,  type:'chair' },
+  { angle: 340, dist: 1.95, type:'rocker' },
+  { angle: 35,  dist: 1.95, type:'lowchair' },
+  { angle: 110, dist: 1.95, type:'stump' },
+];
+
+function deg(a){ return a*Math.PI/180; }
+
+function makeStump(){
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.36,0.4,10), new THREE.MeshStandardMaterial({color:0x5a3d27, flatShading:true}));
+  m.position.y = 0.2; m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+function makeChair(color){
+  const g = new THREE.Group();
+  const frame = new THREE.MeshStandardMaterial({ color:0x6b4a2e, flatShading:true });
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.06,0.55), new THREE.MeshStandardMaterial({color, flatShading:true}));
+  seat.position.y = 0.42; seat.castShadow = true;
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.55,0.06), new THREE.MeshStandardMaterial({color, flatShading:true}));
+  back.position.set(0,0.68,-0.26); back.castShadow = true;
+  [[-0.27,-0.24],[0.27,-0.24],[-0.27,0.24],[0.27,0.24]].forEach(p=>{
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.42,6), frame);
+    leg.position.set(p[0],0.2,p[1]);
+    g.add(leg);
+  });
+  g.add(seat, back);
+  return g;
+}
+function makeLowChair(color){
+  const g = makeChair(color);
+  g.scale.set(1,0.7,1);
+  return g;
+}
+function makeRocker(){
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color:0xb5482e, flatShading:true });
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.07,0.5), mat); seat.position.y=0.46;
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.6,0.07), mat); back.position.set(0,0.74,-0.24);
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.07,0.5), mat); armL.position.set(-0.26,0.5,0);
+  const armR = armL.clone(); armR.position.x = 0.26;
+  const rockerCurveMat = new THREE.MeshStandardMaterial({color:0x3a2316, flatShading:true});
+  [-0.2,0.2].forEach(z=>{
+    const curve = new THREE.Mesh(new THREE.TorusGeometry(0.34,0.025,6,16,Math.PI*0.8), rockerCurveMat);
+    curve.rotation.z = Math.PI/2 + 0.4;
+    curve.position.set(0,0.1,z);
+    g.add(curve);
+  });
+  g.add(seat,back,armL,armR);
+  g.castShadow = true;
+  return g;
+}
+function buildSeat(type, color){
+  if (type==='stump') return makeStump();
+  if (type==='chair') return makeChair(color);
+  if (type==='lowchair') return makeLowChair(color);
+  if (type==='rocker') return makeRocker();
+  return makeStump();
+}
+
+function skinTone(){ return 0xe3ad84; }
+
+function makeAvatar(member, seatType){
+  const g = new THREE.Group();
+  const accent = new THREE.Color(member.color);
+  const skinMat = new THREE.MeshStandardMaterial({ color: skinTone(), flatShading:true, roughness:0.8 });
+  const clothMat = new THREE.MeshStandardMaterial({ color: accent, flatShading:true, roughness:0.85 });
+  const hairMat = new THREE.MeshStandardMaterial({ color: 0x2a1f1a, flatShading:true, roughness:0.9 });
+
+  const sitY = seatType==='lowchair' ? 0.32 : (seatType==='stump' ? 0.42 : 0.5);
+
+  // torso
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.22,0.32,4,8), clothMat);
+  torso.position.y = sitY + 0.28;
+  torso.castShadow = true;
+  g.add(torso);
+
+  // head
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2,16,16), skinMat);
+  head.position.y = sitY + 0.62;
+  head.castShadow = true;
+  g.add(head);
+
+  // hair cap
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.21,16,12,0,Math.PI*2,0,Math.PI*0.62), hairMat);
+  hair.position.y = sitY + 0.65;
+  g.add(hair);
+
+  // arms (resting on lap, bent)
+  [-1,1].forEach(side=>{
+    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.07,0.22,4,6), clothMat);
+    upper.position.set(0.26*side, sitY+0.32, 0.06);
+    upper.rotation.z = side * 0.5;
+    upper.castShadow = true;
+    g.add(upper);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.075,8,8), skinMat);
+    hand.position.set(0.27*side, sitY+0.16, 0.22);
+    g.add(hand);
+  });
+
+  // legs bent forward (sitting)
+  [-1,1].forEach(side=>{
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.09,0.32,4,6), clothMat);
+    thigh.rotation.x = Math.PI/2;
+    thigh.position.set(0.13*side, sitY-0.06, 0.18);
+    thigh.castShadow = true;
+    g.add(thigh);
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.08,0.3,4,6), new THREE.MeshStandardMaterial({color:0x2c2c34, flatShading:true}));
+    shin.position.set(0.13*side, sitY-0.22, 0.36);
+    shin.rotation.x = 0.25;
+    shin.castShadow = true;
+    g.add(shin);
+  });
+
+  g.userData.headY = sitY + 0.62;
+  g.userData.member = member;
+  return g;
+}
+
+const seatGroup = new THREE.Group();
+const avatarMeta = []; // {member, group, headOffset}
+let roomGeneration = 0; // bumped each rebuild so old preview chatter/voice loops stop cleanly
+
+function buildCamp(){
+  roomGeneration++;
+  const myGen = roomGeneration;
+
+  // clear old 3D seats/avatars
+  seatGroup.clear();
+  avatarMeta.length = 0;
+
+  // clear old floating name tags / speech bubbles (otherwise switching
+  // from the preview camp to the real one leaves stale DOM elements behind)
+  labelEls.forEach(el => el.remove()); labelEls.clear();
+  bubbleEls.forEach(el => el.remove()); bubbleEls.clear();
+
+  const members = ROOM.members.slice(0,5);
+  members.forEach((member, i) => {
+    const def = SEAT_DEFS[i % SEAT_DEFS.length];
+    const x = Math.cos(deg(def.angle)) * def.dist;
+    const z = Math.sin(deg(def.angle)) * def.dist;
+
+    const seat = buildSeat(def.type, new THREE.Color(member.color).clone().lerp(new THREE.Color(0x222222),0.5));
+    seat.position.set(x,0,z);
+    seat.rotation.y = -deg(def.angle) + Math.PI;
+    seatGroup.add(seat);
+
+    const avatar = makeAvatar(member, def.type);
+    avatar.position.set(x,0,z);
+    avatar.rotation.y = -deg(def.angle) + Math.PI;
+    seatGroup.add(avatar);
+
+    avatarMeta.push({ member, avatar });
+  });
+  scene.add(seatGroup);
+  return myGen;
+}
+
+/* ============================================================
+   3D -> 2D LABEL PROJECTION (name tags + speech bubbles)
+   ============================================================ */
+const labelLayer = document.getElementById('overlay');
+const labelEls = new Map();
+const bubbleEls = new Map();
+
+function ensureLabel(id, member){
+  if (labelEls.has(id)) return labelEls.get(id);
+  const el = document.createElement('div');
+  el.className = 'avatar-label';
+  el.style.color = member.color;
+  el.innerHTML = `
+    <div class="name-row">
+      <span>${member.name}</span>
+      ${member.isYou ? '<span class="you-tag">YOU</span>' : ''}
+    </div>
+    <div class="bars" id="bars-${id}"><span></span><span></span><span></span></div>
+  `;
+  labelLayer.appendChild(el);
+  labelEls.set(id, el);
+  return el;
+}
+
+function ensureBubble(id){
+  if (bubbleEls.has(id)) return bubbleEls.get(id);
+  const el = document.createElement('div');
+  el.className = 'speech-bubble';
+  labelLayer.appendChild(el);
+  bubbleEls.set(id, el);
+  return el;
+}
+
+function showBubble(id, text){
+  const el = ensureBubble(id);
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(()=> el.classList.remove('show'), 3200);
+}
+
+function setSpeaking(id, on){
+  const bars = document.getElementById(`bars-${id}`);
+  if (bars) bars.classList.toggle('speaking', on);
+}
+
+const tmpVec = new THREE.Vector3();
+function updateLabels(){
+  avatarMeta.forEach(({member, avatar}) => {
+    const el = ensureLabel(member.id, member);
+    tmpVec.set(0, avatar.userData.headY + 0.28, 0).add(avatar.position);
+    tmpVec.project(camera);
+    const x = (tmpVec.x*0.5+0.5) * window.innerWidth;
+    const y = (1 - (tmpVec.y*0.5+0.5)) * window.innerHeight;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.display = tmpVec.z > 1 ? 'none' : 'flex';
+
+    const bEl = bubbleEls.get(member.id);
+    if (bEl){
+      bEl.style.left = x + 'px';
+      bEl.style.top = (y - 26) + 'px';
+    }
+  });
+}
+
+/* ============================================================
+   CHAT
+   ============================================================ */
+const chatLog = document.getElementById('chat-log');
+function timeNow(){
+  const d = new Date();
+  return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+function pushMessage({who, color, text, system}){
+  const row = document.createElement('div');
+  row.className = 'msg' + (system ? ' system' : '');
+  if (system){
+    row.textContent = text;
+  } else {
+    row.innerHTML = `<span class="who" style="color:${color}">${who}</span>${text}<span class="time">${timeNow()}</span>`;
+  }
+  chatLog.appendChild(row);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function broadcastMessage(member, text){
+  pushMessage({ who: member.name, color: member.color, text });
+  showBubble(member.id, text);
+}
+
+document.getElementById('send-btn').addEventListener('click', sendMyMessage);
+document.getElementById('msg-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendMyMessage();
+});
+function sendMyMessage(){
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+  const me = ROOM.members.find(m => m.isYou);
+  broadcastMessage(me, text);
+  input.value = '';
+  sendChatOverSocket(text); // relays to other real members via the backend when connected
+}
+
+// scripted demo chatter so the camp feels alive when running standalone
+// (also used for the pre-join background preview). `gen` stops this loop
+// automatically once buildCamp() runs again for a newer room.
+function startDemoChatter(gen){
+  const lines = [
+    'hey all! 👋','where is everyone from?','this fire is cozy','anyone else hear that owl 🦉',
+    'love this spot','what time is it for you all?','passing the marshmallows 🍡','good vibes tonight'
+  ];
+  let i = 0;
+  const others = ROOM.members.filter(m => !m.isYou);
+  function tick(){
+    if (gen !== roomGeneration) return; // a newer room took over, stop here
+    if (i >= Math.min(others.length+2, lines.length)) {
+      // loop the chatter softly so a long-idle preview camp stays alive
+      i = 0;
+      setTimeout(tick, 4000 + Math.random()*3000);
+      return;
+    }
+    const member = others[i % others.length];
+    if (member) broadcastMessage(member, lines[i % lines.length]);
+    i++;
+    setTimeout(tick, 1800 + Math.random()*2200);
+  }
+  setTimeout(tick, 1200);
+}
+
+/* ============================================================
+   VOICE (WebRTC) — peer-to-peer mic toggle.
+   Production note: real multi-peer signaling needs your own
+   signaling server (WebSocket) to exchange SDP/ICE between the
+   5 members of a camp. Mic capture + toggle works standalone;
+   wire `sendSignal()` / `onSignal()` to your backend to go live.
+   ============================================================ */
+let micOn = false, localStream = null;
+const micBtn = document.getElementById('mic-btn');
+const speakerBtn = document.getElementById('speaker-btn');
+
+micBtn.addEventListener('click', async () => {
+  if (!micOn){
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+      micOn = true;
+      micBtn.classList.add('active'); micBtn.classList.remove('off');
+      const me = ROOM.members.find(m => m.isYou);
+      if (me) setSpeaking(me.id, true);
+      monitorMic();
+    } catch(e){
+      pushMessage({system:true, text:'Microphone permission denied.'});
+    }
+  } else {
+    if (localStream) localStream.getTracks().forEach(t=>t.stop());
+    micOn = false;
+    micBtn.classList.remove('active'); micBtn.classList.add('off');
+    const me = ROOM.members.find(m => m.isYou);
+    if (me) setSpeaking(me.id, false);
+  }
+});
+
+let speakerOn = true;
+speakerBtn.addEventListener('click', () => {
+  speakerOn = !speakerOn;
+  speakerBtn.classList.toggle('active', speakerOn);
+  speakerBtn.classList.toggle('off', !speakerOn);
+});
+
+function monitorMic(){
+  if (!localStream) return;
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = ctx.createMediaStreamSource(localStream);
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 512;
+  src.connect(analyser);
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  const me = ROOM.members.find(m => m.isYou);
+  function loop(){
+    if (!micOn) return;
+    analyser.getByteFrequencyData(data);
+    const avg = data.reduce((a,b)=>a+b,0)/data.length;
+    if (me) setSpeaking(me.id, avg > 12);
+    requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+// ambient simulated speaking bars for demo companions (used standalone
+// and for the pre-join preview camp). Stops once a newer room is built.
+function simulateAmbientVoice(gen){
+  ROOM.members.filter(m=>!m.isYou).forEach(m=>{
+    function pulse(){
+      if (gen !== roomGeneration) return;
+      setSpeaking(m.id, true);
+      setTimeout(()=> { if (gen === roomGeneration) setSpeaking(m.id, false); }, 900 + Math.random()*1400);
+      setTimeout(pulse, 4000 + Math.random()*6000);
+    }
+    setTimeout(pulse, 1500 + Math.random()*3000);
+  });
+}
+
+/* ============================================================
+   AMBIENT SOUND — your own hosted recording.
+   ⚠️ REPLACE THE src BELOW with the real URL of the file you
+   hosted (e.g. "/static/audio/campfire-ambience.mp3" on your
+   Django server, or an S3/CDN URL). A Jumpshare *share page* link
+   can't be used directly here — it's a player page, not a raw
+   file URL, so the browser can't stream it as <audio src="...">.
+   Once you swap in the real file URL this just works.
+   Browsers block audio until a user gesture, so playback starts
+   on the Join click and can be muted any time with the note button.
+   ============================================================ */
+const ambienceAudio = document.getElementById('ambience-audio');
+ambienceAudio.volume = 0.55;
+let ambienceStarted = false;
+
+function initAmbience(){
+  if (ambienceStarted) return;
+  ambienceStarted = true;
+  ambienceAudio.play().catch(e => console.warn('Ambience playback blocked:', e));
+}
+
+const ambientBtn = document.getElementById('ambient-btn');
+ambientBtn.addEventListener('click', () => {
+  if (!ambienceStarted){
+    initAmbience();
+    ambientBtn.classList.add('active'); ambientBtn.classList.remove('off');
+    return;
+  }
+  if (ambienceAudio.paused){
+    ambienceAudio.play().catch(()=>{});
+    ambientBtn.classList.add('active'); ambientBtn.classList.remove('off');
+  } else {
+    ambienceAudio.pause();
+    ambientBtn.classList.remove('active'); ambientBtn.classList.add('off');
+  }
+});
+
+/* ============================================================
+   LEAVE / COPY
+   ============================================================ */
+document.getElementById('leave-btn').addEventListener('click', () => {
+  if (localStream) localStream.getTracks().forEach(t=>t.stop());
+  if (ws) ws.close();
+  if (tg && tg.close) tg.close();
+  else pushMessage({system:true, text:'Left the camp.'});
+});
+
+document.getElementById('copy-btn').addEventListener('click', () => {
+  navigator.clipboard?.writeText(ROOM.id || '').then(()=>{
+    pushMessage({system:true, text:'Camp ID copied.'});
+  });
+});
+
+/* ============================================================
+   JOIN FLOW
+   Tries the real backend first (connectWebSocket). If it can't
+   reach one within a few seconds, falls back to a local simulated
+   camp so the demo is still fully alive on its own.
+   ============================================================ */
+const joinBtn = document.getElementById('join-btn');
+const joinLabel = document.getElementById('join-label');
+
+async function handleJoin(){
+  joinBtn.disabled = true;
+  joinLabel.textContent = 'Connecting…';
+  initAmbience(); // first real user gesture — safe to start audio here
+  chatLog.innerHTML = ''; // clear the preview chatter, fresh start for the real session
+
+  const ok = await connectWebSocket();
+  let gen;
+  if (!ok){
+    applyRoomState(simulateRoom());
+    gen = buildCamp();
+    pushMessage({system:true, text:`You joined ${ROOM.id} (local demo mode — no backend reachable)`});
+    ROOM.members.filter(m=>!m.isYou).forEach((m,i)=>{
+      setTimeout(()=> pushMessage({system:true, text:`${m.name} joined the camp`}), 300*(i+1));
+    });
+    startDemoChatter(gen);
+    simulateAmbientVoice(gen);
+  } else {
+    gen = buildCamp();
+    pushMessage({system:true, text:`You joined ${ROOM.id}`});
+  }
+
+  connected = true;
+  autoRotate = false;
+  document.body.classList.add('connected');
+  document.getElementById('voice-status').textContent = 'Connected';
+  document.getElementById('voice-dot').classList.add('green');
+  joinBtn.disabled = false;
+}
+joinBtn.addEventListener('click', handleJoin);
+
+/* ============================================================
+   BOOT SEQUENCE — registers with the backend (so it can verify
+   the Telegram user and we can greet them by name on the Join
+   button), then immediately populates the campfire with a demo
+   crowd chatting in the background so it never looks empty while
+   waiting for the real Join. Actually joining a real camp happens
+   only when the person taps Join.
+   ============================================================ */
+async function boot(){
+  if (typeof THREE === 'undefined') {
+    document.querySelector('#boot-screen .label').textContent =
+      '3D library failed to load — check your internet connection and reload.';
+    document.querySelector('#boot-screen .flame').textContent = '⚠️';
+    return;
+  }
+  const info = await reportToServer();
+  const username = info && (info.username || (info.user && info.user.username));
+  if (username) joinLabel.textContent = `Join as @${username}`;
+
+  ROOM = simulatePreviewRoom();
+  const gen = buildCamp();
+  startDemoChatter(gen);
+  simulateAmbientVoice(gen);
+
+  document.getElementById('boot-screen').style.opacity = '0';
+  setTimeout(()=> document.getElementById('boot-screen').style.display='none', 500);
+}
+
+/* ============================================================
+   CAMERA — auto-revolves slowly while waiting at the Join screen;
+   stops once connected to a real camp, but the person can always
+   drag/swipe to look around manually, any time.
+   ============================================================ */
+let orbitAngle = 0;
+let autoRotate = true;
+let isDragging = false;
+let dragStartX = 0, dragStartAngle = 0;
+
+canvas.style.cursor = 'grab';
+canvas.addEventListener('pointerdown', e => {
+  isDragging = true;
+  dragStartX = e.clientX;
+  dragStartAngle = orbitAngle;
+  canvas.style.cursor = 'grabbing';
+  canvas.setPointerCapture(e.pointerId);
+});
+window.addEventListener('pointermove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - dragStartX;
+  orbitAngle = dragStartAngle + dx * 0.006;
+});
+window.addEventListener('pointerup', () => {
+  isDragging = false;
+  canvas.style.cursor = 'grab';
+});
+
+/* ============================================================
+   RENDER LOOP
+   ============================================================ */
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+
+  flames.forEach(f=>{
+    f.position.y = 0.1 + ((t*f.userData.speed + f.userData.offset) % 1) * 0.9;
+    const fade = 1 - ((t*f.userData.speed + f.userData.offset) % 1);
+    f.material.opacity = fade;
+    f.scale.x = f.scale.y * (0.5 + 0.3*Math.sin(t*8+f.userData.offset));
+  });
+  fireLight.intensity = 3.6 + Math.sin(t*14)*0.5 + Math.random()*0.2;
+  lanternLight.intensity = 1.0 + Math.sin(t*3)*0.08;
+
+  // auto-revolve only while not connected (and not being dragged);
+  // manual drag always works, connected or not
+  if (autoRotate && !isDragging) orbitAngle += dt * 0.05;
+  const radius = 11.8;
+  camera.position.x = Math.sin(orbitAngle) * radius;
+  camera.position.z = Math.cos(orbitAngle) * radius;
+  camera.position.y = 9;
+  camera.lookAt(0,0.6,0);
+
+  updateLabels();
+  renderer.render(scene, camera);
+}
+
+boot();
+animate();
+
+</script>
+</body>
+</html>
