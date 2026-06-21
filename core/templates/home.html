@@ -8,51 +8,51 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
 <script>
-  // fallback in case the primary CDN is blocked in this webview
   if (typeof THREE === 'undefined') {
     document.write('<script src="https://unpkg.com/three@0.150.1/build/three.min.js"><\/script>');
   }
 </script>
 <style>
   :root{
-    --panel-bg: rgba(15,13,20,0.72);
-    --panel-border: rgba(255,255,255,0.08);
+    --panel-bg: rgba(10,8,18,0.78);
+    --panel-border: rgba(255,255,255,0.07);
     --ember: #ff7a3d;
     --ember-soft: #ffb37a;
     --ok-green: #3ddc84;
     --leave-red: #e2473d;
-    --text-dim: #9b96a8;
+    --text-dim: #8a8499;
   }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body{
     margin:0; padding:0; width:100%; height:100%;
-    background:#05060a;
+    background:#030408;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     overflow:hidden;
     color:#fff;
   }
   #scene{ position:fixed; inset:0; width:100%; height:100%; display:block; }
-
   #overlay{ position:fixed; inset:0; pointer-events:none; }
   #overlay > *{ pointer-events:auto; }
 
-  /* top-left info panel */
+  /* info panel */
   #info-panel{
     position:absolute; top:14px; left:14px;
     background:var(--panel-bg); border:1px solid var(--panel-border);
-    border-radius:14px; padding:10px 14px;
-    backdrop-filter: blur(10px);
-    min-width:150px;
-    box-shadow:0 8px 24px rgba(0,0,0,0.35);
+    border-radius:16px; padding:10px 14px;
+    backdrop-filter: blur(14px);
+    min-width:156px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.5);
   }
   .info-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:4px 0; }
-  .info-label{ font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em; }
+  .info-label{ font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em; }
   .info-value{ font-size:14px; font-weight:600; }
   #copy-btn{
-    background:rgba(255,255,255,0.08); border:none; color:#fff; border-radius:8px;
+    background:rgba(255,255,255,0.07); border:none; color:#fff; border-radius:8px;
     width:24px; height:24px; font-size:12px; cursor:pointer; flex-shrink:0;
+    transition: background .15s;
   }
-  .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:5px; background:#5b5566; }
+  #copy-btn:hover{ background:rgba(255,255,255,0.14); }
+  .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:5px; background:#3d3650; }
   .dot.green{ background:var(--ok-green); box-shadow:0 0 8px var(--ok-green); }
   .dot.red{ background:var(--leave-red); }
 
@@ -60,25 +60,26 @@
   #top-controls{ position:absolute; top:14px; right:14px; display:flex; gap:10px; }
   .round-btn{
     width:42px; height:42px; border-radius:50%; border:1px solid var(--panel-border);
-    background:var(--panel-bg); backdrop-filter:blur(10px); cursor:pointer;
+    background:var(--panel-bg); backdrop-filter:blur(14px); cursor:pointer;
     display:flex; align-items:center; justify-content:center; color:#fff;
-    box-shadow:0 8px 20px rgba(0,0,0,0.3);
+    box-shadow:0 8px 24px rgba(0,0,0,0.4);
+    transition: background .15s, border-color .15s, color .15s;
   }
   .round-btn svg{ width:19px; height:19px; }
-  .round-btn.active{ background:rgba(61,220,132,0.18); border-color:rgba(61,220,132,0.4); color:var(--ok-green); }
-  .round-btn.off{ background:rgba(226,71,61,0.18); border-color:rgba(226,71,61,0.4); color:var(--leave-red); }
-  #leave-btn{ background:rgba(226,71,61,0.22); border-color:rgba(226,71,61,0.45); color:#ff8b82; }
+  .round-btn.active{ background:rgba(61,220,132,0.16); border-color:rgba(61,220,132,0.38); color:var(--ok-green); }
+  .round-btn.off{ background:rgba(226,71,61,0.14); border-color:rgba(226,71,61,0.35); color:var(--leave-red); }
+  #leave-btn{ background:rgba(226,71,61,0.18); border-color:rgba(226,71,61,0.4); color:#ff8b82; }
 
-  /* avatar name labels */
+  /* avatar labels */
   .avatar-label{
     position:absolute; transform:translate(-50%,-100%); text-align:center;
     font-size:12px; font-weight:600; white-space:nowrap; pointer-events:none;
-    text-shadow:0 2px 6px rgba(0,0,0,0.8);
-    display:flex; flex-direction:column; align-items:center; gap:3px;
+    text-shadow:0 2px 8px rgba(0,0,0,0.9), 0 0 24px rgba(0,0,0,0.6);
+    display:flex; flex-direction:column; align-items:center; gap:4px;
   }
   .avatar-label .name-row{ display:flex; align-items:center; gap:4px; }
   .you-tag{ background:var(--ok-green); color:#06210f; font-size:9px; font-weight:700;
-    padding:1px 5px; border-radius:6px; }
+    padding:1px 5px; border-radius:6px; letter-spacing:.04em; }
   .bars{ display:flex; align-items:flex-end; gap:1.5px; height:9px; opacity:0; transition:opacity .15s; }
   .bars.speaking{ opacity:1; }
   .bars span{ width:2.5px; background:var(--ok-green); border-radius:1px; animation:bar 0.9s infinite ease-in-out; }
@@ -89,42 +90,43 @@
 
   .speech-bubble{
     position:absolute; transform:translate(-50%,-100%); pointer-events:none;
-    background:#fff; color:#15131c; padding:6px 10px; border-radius:12px;
-    font-size:12.5px; font-weight:500; max-width:160px; line-height:1.25;
-    box-shadow:0 6px 16px rgba(0,0,0,0.35);
-    opacity:0; transition:opacity .2s, transform .2s;
+    background:rgba(255,255,255,0.96); color:#15131c; padding:7px 11px; border-radius:14px;
+    font-size:12.5px; font-weight:500; max-width:168px; line-height:1.3;
+    box-shadow:0 8px 24px rgba(0,0,0,0.45);
+    opacity:0; transition:opacity .25s, transform .25s;
+    transform:translate(-50%,-100%) translateY(4px);
   }
   .speech-bubble::after{
     content:""; position:absolute; left:50%; bottom:-5px; transform:translateX(-50%);
-    border-width:6px 6px 0 6px; border-style:solid; border-color:#fff transparent transparent transparent;
+    border-width:6px 6px 0; border-style:solid; border-color:rgba(255,255,255,0.96) transparent transparent;
   }
-  .speech-bubble.show{ opacity:1; }
+  .speech-bubble.show{ opacity:1; transform:translate(-50%,-100%) translateY(0); }
 
   /* chat panel */
   #chat-panel{
-    position:absolute; right:14px; bottom:84px; top:auto;
-    width:min(260px, 42vw); max-height:46vh;
+    position:absolute; right:14px; bottom:84px;
+    width:min(268px, 44vw); max-height:48vh;
     background:var(--panel-bg); border:1px solid var(--panel-border);
-    border-radius:16px; backdrop-filter:blur(10px);
+    border-radius:18px; backdrop-filter:blur(14px);
     display:flex; flex-direction:column; overflow:hidden;
-    box-shadow:0 10px 28px rgba(0,0,0,0.35);
+    box-shadow:0 12px 36px rgba(0,0,0,0.45);
   }
   #chat-log{ flex:1; overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
-  #chat-log::-webkit-scrollbar{ width:4px; }
-  #chat-log::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.15); border-radius:4px; }
-  .msg{ font-size:12.5px; line-height:1.35; }
+  #chat-log::-webkit-scrollbar{ width:3px; }
+  #chat-log::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.12); border-radius:3px; }
+  .msg{ font-size:12.5px; line-height:1.38; }
   .msg .who{ font-weight:700; margin-right:5px; }
   .msg .time{ color:var(--text-dim); font-size:10px; margin-left:5px; }
   .msg.system{ color:var(--text-dim); font-style:italic; font-size:11.5px; }
 
-  /* message input */
+  /* input bar */
   #input-bar{
     position:absolute; left:14px; bottom:14px;
     width:min(360px, calc(100% - 28px));
     display:flex; gap:8px; align-items:center;
     background:var(--panel-bg); border:1px solid var(--panel-border);
-    border-radius:24px; padding:6px 6px 6px 16px; backdrop-filter:blur(10px);
-    box-shadow:0 10px 28px rgba(0,0,0,0.35);
+    border-radius:26px; padding:6px 6px 6px 16px; backdrop-filter:blur(14px);
+    box-shadow:0 10px 32px rgba(0,0,0,0.45);
   }
   #msg-input{
     flex:1; background:transparent; border:none; outline:none; color:#fff;
@@ -133,19 +135,23 @@
   #msg-input::placeholder{ color:var(--text-dim); }
   #send-btn{
     width:36px; height:36px; border-radius:50%; border:none; cursor:pointer;
-    background:var(--ember); color:#1a0e06; flex-shrink:0;
+    background:linear-gradient(135deg,#ff8a45,#d45a1a); color:#fff; flex-shrink:0;
     display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px rgba(255,100,40,0.4);
+    transition: transform .12s;
   }
+  #send-btn:active{ transform:scale(0.93); }
   #send-btn svg{ width:16px; height:16px; }
 
+  /* boot screen */
   #boot-screen{
-    position:fixed; inset:0; background:#05060a; z-index:50;
+    position:fixed; inset:0; background:#030408; z-index:50;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:14px; transition:opacity .5s;
+    gap:16px; transition:opacity .6s;
   }
-  #boot-screen .flame{ font-size:38px; animation:flicker 1.4s infinite; }
-  @keyframes flicker{ 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:.7; transform:scale(.92); } }
-  #boot-screen .label{ color:var(--text-dim); font-size:13px; letter-spacing:.04em; }
+  #boot-screen .flame{ font-size:44px; animation:flicker 1.4s infinite; }
+  @keyframes flicker{ 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:.65; transform:scale(.9); } }
+  #boot-screen .label{ color:var(--text-dim); font-size:13px; letter-spacing:.06em; }
 
   /* join overlay */
   #join-overlay{
@@ -154,21 +160,24 @@
   }
   #join-btn{
     display:flex; align-items:center; gap:10px;
-    background:linear-gradient(135deg, var(--ember), #c2461f);
-    color:#1c0d04; border:none; border-radius:30px;
-    padding:14px 26px; font-size:15px; font-weight:700;
-    cursor:pointer; box-shadow:0 10px 30px rgba(255,122,61,0.4), 0 0 0 1px rgba(255,255,255,0.15) inset;
+    background:linear-gradient(135deg, #ff8a45, #c2421a);
+    color:#fff; border:none; border-radius:32px;
+    padding:15px 28px; font-size:15px; font-weight:700;
+    cursor:pointer;
+    box-shadow:0 12px 36px rgba(255,110,50,0.45), 0 0 0 1px rgba(255,255,255,0.12) inset;
     animation:joinPulse 2.4s infinite;
+    transition: transform .12s;
   }
+  #join-btn:active{ transform:scale(0.96); }
   #join-btn:disabled{ opacity:0.7; cursor:default; animation:none; }
   #join-btn .join-flame{ font-size:18px; animation:flicker 1.4s infinite; }
   @keyframes joinPulse{
-    0%,100%{ box-shadow:0 10px 30px rgba(255,122,61,0.4), 0 0 0 1px rgba(255,255,255,0.15) inset; }
-    50%{ box-shadow:0 10px 38px rgba(255,122,61,0.65), 0 0 0 1px rgba(255,255,255,0.25) inset; }
+    0%,100%{ box-shadow:0 12px 36px rgba(255,110,50,0.45), 0 0 0 1px rgba(255,255,255,0.12) inset; }
+    50%{ box-shadow:0 12px 48px rgba(255,110,50,0.7), 0 0 0 1px rgba(255,255,255,0.22) inset; }
   }
-  #join-hint{ color:var(--text-dim); font-size:11.5px; letter-spacing:.03em; }
+  #join-hint{ color:var(--text-dim); font-size:11.5px; letter-spacing:.04em; }
 
-  /* visibility states: hidden until connected, join button hidden after */
+  /* visibility */
   body:not(.connected) #chat-panel,
   body:not(.connected) #input-bar,
   body:not(.connected) #mic-btn,
@@ -178,7 +187,6 @@
 </head>
 <body>
 
-<!-- Django renders this into a hidden input with name="csrfmiddlewaretoken" -->
 {% csrf_token %}
 
 <div id="boot-screen">
@@ -188,10 +196,9 @@
 
 <canvas id="scene"></canvas>
 
-<!-- ⚠️ Swap this src for the real URL of the file you hosted -->
 <audio id="ambience-audio" loop preload="auto" src="{% static 'audio/5_MINUTES_FIRE_CRACKLING_RELAXING_SOUND_NO_MUSIC_NATURE_SOUND_CAMPING.mp3' %}"></audio>
 
-<div id="overlay"
+<div id="overlay">
   <div id="info-panel">
     <div class="info-row">
       <span class="info-label">Camp ID</span>
@@ -238,7 +245,7 @@
   </div>
 
   <div id="input-bar">
-    <input id="msg-input" type="text" placeholder="Type a message…" maxlength="200">
+    <input id="msg-input" type="text" placeholder="Say something…" maxlength="200">
     <button id="send-btn">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
     </button>
@@ -246,27 +253,36 @@
 </div>
 
 <script>
-/* ============================================================
+/* ================================================================
    TELEGRAM MINI APP BOOTSTRAP
-   On launch, Telegram injects the user's data into the page via
-   window.Telegram.WebApp. We grab it and forward it to our own
-   backend at "/" so the server can validate initData (HMAC check
-   with your bot token) and place this user into a camp of 5.
-   ============================================================ */
-const tg = window.Telegram ? window.Telegram.WebApp : null;
+   We fully capture tg.initData (the raw signed query string),
+   tg.initDataUnsafe (the parsed object), plus platform and version.
+   All of it is forwarded to the Django backend in the POST body so
+   your view can run the HMAC validation against your bot token.
+   ================================================================ */
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 let tgUser = null;
+let tgInitData = '';       // raw HMAC-signed string — the one you MUST validate server-side
+let tgPlatform = 'unknown';
+let tgVersion = '';
 
 if (tg) {
   tg.ready();
   tg.expand();
-  try { tg.setHeaderColor('#05060a'); tg.setBackgroundColor('#05060a'); } catch(e) {}
-  tgUser = tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
+  try { tg.setHeaderColor('#030408'); tg.setBackgroundColor('#030408'); } catch(e) {}
+
+  tgInitData  = tg.initData || '';
+  tgPlatform  = tg.platform || 'unknown';
+  tgVersion   = tg.version  || '';
+
+  // initDataUnsafe.user is the parsed user object inside the signed string.
+  // Do NOT trust it for auth decisions — only use it client-side for display.
+  // Trust initData (HMAC-validated on the server) for anything security-relevant.
+  tgUser = (tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
 }
 
-// Django note: the {% csrf_token %} tag above renders a hidden
-// <input name="csrfmiddlewaretoken"> — that's the primary source.
-// We fall back to the csrftoken cookie if that input isn't present
-// for any reason (e.g. CDN-cached static HTML served outside Django).
+// CSRF: primary source is the hidden input Django renders via {% csrf_token %}.
+// Fallback to the cookie in case the page is served outside normal Django views.
 function getCsrfToken(){
   const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
   if (input && input.value) return input.value;
@@ -274,57 +290,73 @@ function getCsrfToken(){
   return match ? decodeURIComponent(match.pop()) : '';
 }
 
+/* ================================================================
+   reportToServer — POST to Django backend on load.
+   Sends the full initData string so the server can run:
+     HMAC-SHA256(secret_key, data_check_string) == hash
+   Returns { roomId, members, username, … } if the backend assigns
+   this user to a camp; null on any failure (falls back to demo mode).
+   ================================================================ */
 async function reportToServer() {
-  if (!tg) return null;
+  if (!tg || !tgInitData) return null;
   try {
+    const payload = {
+      initData:  tgInitData,          // ← HMAC-signed, server must validate this
+      platform:  tgPlatform,
+      version:   tgVersion,
+      // client-side convenience copies — server should derive these from initData
+      user: tgUser ? {
+        id:           tgUser.id,
+        first_name:   tgUser.first_name   || '',
+        last_name:    tgUser.last_name    || '',
+        username:     tgUser.username     || '',
+        language_code:tgUser.language_code|| '',
+        is_premium:   tgUser.is_premium   || false,
+        photo_url:    tgUser.photo_url    || null,
+      } : null,
+      ts: Date.now(),
+    };
+
     const res = await fetch('', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRFToken': getCsrfToken(),
-        'X-Requested-With': 'XMLHttpRequest'
+        'X-CSRFToken':  getCsrfToken(),
+        'X-Requested-With': 'XMLHttpRequest',
       },
       credentials: 'same-origin',
-      body: JSON.stringify({
-        initData: tg.initData,
-        user: tgUser,
-        platform: tg.platform,
-        ts: Date.now()
-      })
+      body: JSON.stringify(payload),
     });
-    if (res.ok) return await res.json().catch(() => null);
-  } catch (e) {
-    console.warn('Could not reach backend, falling back to local demo mode:', e);
+
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      return data;
+    }
+    console.warn('Backend responded with', res.status);
+  } catch(e) {
+    console.warn('Backend unreachable, falling back to demo mode:', e);
   }
   return null;
 }
 
 const myName = (tgUser && (tgUser.first_name || tgUser.username)) || 'You';
 
-/* ============================================================
+/* ================================================================
    ROOM / MATCHMAKING
-   In production, your backend assigns this device to one of many
-   5-person camps and returns { roomId, members:[...] } from the
-   POST above (or over a WebSocket once joined). This file is
-   wired to consume that shape — see applyRoomState(). Since this
-   is a static single-file demo with no server attached, we fall
-   back to a local simulation so the scene is fully alive on its
-   own. Swap simulateRoom() for your real socket/HTTP response.
-   ============================================================ */
-const NAME_POOL = ['Alice','Bob','Emma','Leo','Theo','Otto','Rita','Jo','Elin','Santa'];
+   ================================================================ */
+const NAME_POOL  = ['Alice','Bob','Emma','Leo','Theo','Otto','Rita','Jo','Elin','Maya'];
 const COLOR_POOL = ['#e07a5f','#3d8bdc','#e8b730','#5fb878','#b070d8','#dc6f9b','#56c9c9','#d98a3d'];
 let ROOM = { id: null, members: [] };
 
 function randomId(){
-  const part = () => Math.random().toString(36).slice(2,6);
-  return `camp-${part()}`;
+  const p = () => Math.random().toString(36).slice(2,6);
+  return `camp-${p()}`;
 }
 
 function simulateRoom(){
   const pool = NAME_POOL.filter(n => n.toLowerCase() !== myName.toLowerCase());
   const others = [];
-  const count = 4; // fill the other 4 seats
-  for (let i=0;i<count;i++){
+  for (let i=0;i<4;i++){
     const idx = Math.floor(Math.random()*pool.length);
     const name = pool.splice(idx,1)[0];
     others.push({ id:'demo-'+i, name, color: COLOR_POOL[i % COLOR_POOL.length], isYou:false });
@@ -336,9 +368,6 @@ function simulateRoom(){
   return ROOM;
 }
 
-// Pre-join background ambiance: all 5 seats filled with demo people,
-// nobody tagged "YOU" yet, just to keep the camp from looking empty
-// while the person is staring at the Join button.
 function simulatePreviewRoom(){
   const pool = [...NAME_POOL];
   const members = [];
@@ -356,23 +385,86 @@ function applyRoomState(state){
   document.getElementById('people-count').textContent = `${ROOM.members.length}/5`;
 }
 
-/* ============================================================
-   WEBSOCKET — actual matchmaking connection.
-   Tries to connect to your Django Channels endpoint at /ws/campfire/.
-   On open it sends a 'join' message with the Telegram user/initData;
-   your backend verifies it, places this device in a camp of up to 5,
-   and replies with a 'room_state' message of shape:
-     { type:'room_state', roomId:'camp-xxxx', members:[{id,name,color,isYou}] }
-   After that, 'chat' / 'member_joined' / 'member_left' messages keep
-   the room in sync. If no backend is reachable, we fall back to a
-   local simulated camp so the demo still feels alive on its own.
-   ============================================================ */
+/* ================================================================
+   REAL BACKEND MEMBER TRACKING
+   The backend is the single source of truth for who's in the camp.
+   On every 'user_joined' broadcast we get:
+     { type, message, user, camp_id, users_in_camp, usernames_in_camp }
+   - usernames_in_camp: full current roster (list of usernames)
+   - users_in_camp: count — drives exactly how many seats render
+   We diff usernames_in_camp against what we already know locally to
+   add any brand-new members, and keep colors/ids stable across
+   updates so avatars don't jump around when someone new joins.
+   ================================================================ */
+const myUsername = (tgUser && (tgUser.username || tgUser.first_name)) || '';
+const knownMembersByUsername = new Map(); // username -> member object
+
+function getOrCreateMember(username){
+  if (knownMembersByUsername.has(username)) return knownMembersByUsername.get(username);
+  const isYou = !!myUsername && username === myUsername;
+  const colorIdx = knownMembersByUsername.size % COLOR_POOL.length;
+  const member = {
+    id: username,
+    name: username,
+    color: isYou ? '#7fd6ff' : COLOR_POOL[colorIdx],
+    isYou,
+  };
+  knownMembersByUsername.set(username, member);
+  return member;
+}
+
+function applyUserJoined(data){
+  const camId = data.camp_id;
+  const usernames = Array.isArray(data.usernames_in_camp) ? data.usernames_in_camp : [];
+  const count = typeof data.users_in_camp === 'number' ? data.users_in_camp : usernames.length;
+
+  // Build/refresh the member list from the authoritative roster,
+  // preserving already-known member objects (stable colors/ids).
+  const members = usernames.map(getOrCreateMember);
+
+  ROOM = { id: camId || ROOM.id, members };
+  document.getElementById('room-id').textContent = ROOM.id || '—';
+  document.getElementById('people-count').textContent = `${count}/5`;
+
+  buildCamp(); // re-render seats so avatar count == users_in_camp exactly
+
+  // System message — skip echoing our own join since the UI already
+  // shows we're in. Still show others joining.
+  const joiningUser = data.user;
+  if (joiningUser && joiningUser !== myUsername){
+    pushMessage({ system:true, text: data.message || `${joiningUser} has joined the campfire!` });
+  } else if (joiningUser && joiningUser === myUsername){
+    pushMessage({ system:true, text: `You joined ${ROOM.id || 'the camp'}` });
+  }
+}
+
+function handleIncomingChat(data){
+  const username = data.user;
+  if (!username) return;
+  const member = getOrCreateMember(username);
+  broadcastMessage(member, data.message || '');
+}
+
+/* ================================================================
+   WEBSOCKET
+   initData is appended as a query string param on the WS URL itself
+   (in addition to being sent in the first 'join' message) so the
+   Django Channels consumer can read it directly off the scope:
+     query_string = self.scope.get('query_string', b'').decode('utf-8')
+     query_data   = urllib.parse.parse_qs(query_string)
+     init_data    = query_data.get('initData', [''])[0]
+   ================================================================ */
 let ws = null;
 let connected = false;
 
 function wsUrl(){
   const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
-  return `${proto}${location.host}/ws/campfire/`;
+  const params = new URLSearchParams();
+  if (tgInitData) params.set('initData', tgInitData);
+  if (tgPlatform) params.set('platform', tgPlatform);
+  if (tgVersion)  params.set('version', tgVersion);
+  const qs = params.toString();
+  return `${proto}${location.host}/ws/campfire/${qs ? '?' + qs : ''}`;
 }
 
 function connectWebSocket(){
@@ -382,30 +474,31 @@ function connectWebSocket(){
     const timer = setTimeout(() => finish(false), 4000);
 
     let socket;
-    try { socket = new WebSocket(wsUrl()); }
-    catch(e){ finish(false); return; }
+    try { socket = new WebSocket(wsUrl()); } catch(e){ finish(false); return; }
     ws = socket;
 
     socket.addEventListener('open', () => {
-      socket.send(JSON.stringify({ type:'join', user: tgUser, initData: tg ? tg.initData : null }));
+      // No payload sent here on purpose — auth travels entirely via the
+      // initData query string already attached to the WS URL. The
+      // backend identifies this connection from that alone.
     });
 
     socket.addEventListener('message', evt => {
       let data;
       try { data = JSON.parse(evt.data); } catch(e){ return; }
 
-      if (data.type === 'room_state' && data.roomId && data.members){
-        applyRoomState({ id: data.roomId, members: data.members });
+      if (data.type === 'user_joined'){
+        applyUserJoined(data);
         finish(true);
       } else if (data.type === 'chat'){
-        const member = ROOM.members.find(m => m.id === data.memberId);
-        if (member) broadcastMessage(member, data.text);
-      } else if (data.type === 'member_joined'){
-        pushMessage({ system:true, text:`${data.name} joined the camp` });
-      } else if (data.type === 'member_left'){
-        pushMessage({ system:true, text:`${data.name} left the camp` });
+        handleIncomingChat(data);
+      } else if (data.type === 'member_left' || data.type === 'user_left'){
+        pushMessage({ system:true, text:`${data.name || data.user} left the camp` });
       } else if (data.type === 'speaking'){
         setSpeaking(data.memberId, !!data.on);
+      } else if (data.type === 'error'){
+        pushMessage({ system:true, text: data.message || 'Authentication failed.' });
+        finish(false);
       }
     });
 
@@ -427,35 +520,35 @@ function connectWebSocket(){
 
 function sendChatOverSocket(text){
   if (ws && ws.readyState === WebSocket.OPEN){
-    ws.send(JSON.stringify({ type:'chat', text }));
+    ws.send(JSON.stringify({ type:'chat', message:text, user:myUsername }));
   }
 }
 
-/* ============================================================
+/* ================================================================
    THREE.JS SCENE
-   ============================================================ */
+   ================================================================ */
 if (typeof THREE === 'undefined') {
   document.getElementById('boot-screen').querySelector('.label').textContent =
-    '3D library failed to load — check your internet connection and reload.';
+    '3D library failed to load — check your connection and reload.';
   document.getElementById('boot-screen').querySelector('.flame').textContent = '⚠️';
-  throw new Error('THREE failed to load from all CDNs');
+  throw new Error('THREE failed to load');
 }
-const canvas = document.getElementById('scene');
+
+const canvas   = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x05060f);
-scene.fog = new THREE.FogExp2(0x05060f, 0.035);
+scene.background = new THREE.Color(0x020307);
+scene.fog = new THREE.FogExp2(0x040509, 0.028);
 
-const camera = new THREE.PerspectiveCamera(42, window.innerWidth/window.innerHeight, 0.1, 100);
-function setCamera(){
-  camera.position.set(0, 9, 11.5);
-  camera.lookAt(0, 0.6, 0);
-}
+const camera = new THREE.PerspectiveCamera(44, window.innerWidth/window.innerHeight, 0.1, 200);
+function setCamera(){ camera.position.set(0,9,12); camera.lookAt(0,0.6,0); }
 setCamera();
 
 function resize(){
@@ -466,388 +559,864 @@ function resize(){
 window.addEventListener('resize', resize);
 resize();
 
-// --- lighting ---
-const moon = new THREE.DirectionalLight(0x6f8fdc, 0.35);
-moon.position.set(-8, 12, -6);
+/* ---------- Lighting ---------- */
+const moon = new THREE.DirectionalLight(0x4a6abf, 0.45);
+moon.position.set(-10, 18, -8);
 moon.castShadow = true;
-moon.shadow.mapSize.set(1024,1024);
+moon.shadow.mapSize.set(2048,2048);
+moon.shadow.camera.near = 0.5;
+moon.shadow.camera.far  = 80;
+moon.shadow.camera.left = moon.shadow.camera.bottom = -24;
+moon.shadow.camera.right = moon.shadow.camera.top   =  24;
+moon.shadow.bias = -0.001;
 scene.add(moon);
-scene.add(new THREE.AmbientLight(0x2b3a66, 0.55));
+scene.add(new THREE.AmbientLight(0x1a243c, 0.7));
+scene.add(new THREE.HemisphereLight(0x1a2850, 0x0d0a06, 0.35));
 
-const fireLight = new THREE.PointLight(0xff7a30, 4.2, 14, 2);
+const fireLight = new THREE.PointLight(0xff6620, 5.5, 18, 2.2);
 fireLight.position.set(0, 1.1, 0);
 fireLight.castShadow = true;
+fireLight.shadow.mapSize.set(512,512);
 scene.add(fireLight);
 
-const lanternLight = new THREE.PointLight(0xffb066, 1.1, 5, 2);
+const fireFill = new THREE.PointLight(0xff9944, 1.8, 9, 2);
+fireFill.position.set(0, 0.3, 0.8);
+scene.add(fireFill);
+
+const lanternLight = new THREE.PointLight(0xffaa55, 0.9, 6, 2.2);
 lanternLight.position.set(-4.6, 0.9, 3.6);
 scene.add(lanternLight);
 
-// --- ground ---
-const ground = new THREE.Mesh(
-  new THREE.CircleGeometry(16, 48),
-  new THREE.MeshStandardMaterial({ color:0x1c2640, roughness:1 })
-);
+/* ---------- Ground ---------- */
+const groundMat = new THREE.MeshStandardMaterial({ color:0x111826, roughness:1, metalness:0 });
+const ground = new THREE.Mesh(new THREE.CircleGeometry(22,56), groundMat);
 ground.rotation.x = -Math.PI/2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-const dirt = new THREE.Mesh(
-  new THREE.CircleGeometry(3.6, 36),
-  new THREE.MeshStandardMaterial({ color:0x3a2c20, roughness:1 })
-);
+// Pine needle / grass texture via vertex color noise
+const dirtMat = new THREE.MeshStandardMaterial({ color:0x2e2016, roughness:1 });
+const dirt = new THREE.Mesh(new THREE.CircleGeometry(4.2,40), dirtMat);
 dirt.rotation.x = -Math.PI/2;
-dirt.position.y = 0.01;
+dirt.position.y = 0.012;
 dirt.receiveShadow = true;
 scene.add(dirt);
 
-// --- fire pit ring of stones ---
-const stoneMat = new THREE.MeshStandardMaterial({ color:0x6b6b76, roughness:0.9, flatShading:true });
-for (let i=0;i<14;i++){
-  const a = (i/14)*Math.PI*2;
-  const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.16+Math.random()*0.05,0), stoneMat);
-  s.position.set(Math.cos(a)*0.95, 0.08, Math.sin(a)*0.95);
-  s.rotation.set(Math.random(),Math.random(),Math.random());
+/* ---------- Fire pit stones (more varied, realistic) ---------- */
+const stoneMat = new THREE.MeshStandardMaterial({ color:0x5e5c68, roughness:0.85, metalness:0.05, flatShading:true });
+const darkStoneMat = new THREE.MeshStandardMaterial({ color:0x3a3840, roughness:0.9, flatShading:true });
+for (let i=0;i<18;i++){
+  const a = (i/18)*Math.PI*2;
+  const jitter = (Math.random()-0.5)*0.18;
+  const mat = Math.random()>0.4 ? stoneMat : darkStoneMat;
+  const geos = [
+    new THREE.DodecahedronGeometry(0.14+Math.random()*0.07,0),
+    new THREE.OctahedronGeometry(0.13+Math.random()*0.06,0),
+    new THREE.BoxGeometry(0.22+Math.random()*0.08, 0.13+Math.random()*0.06, 0.18+Math.random()*0.07),
+  ];
+  const s = new THREE.Mesh(geos[Math.floor(Math.random()*3)], mat);
+  s.position.set(Math.cos(a)*(0.98+jitter), 0.07+Math.random()*0.05, Math.sin(a)*(0.98+jitter));
+  s.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
   s.castShadow = true;
   scene.add(s);
 }
 
-// --- logs ---
-const logMat = new THREE.MeshStandardMaterial({ color:0x4a2f1d, roughness:1, flatShading:true });
-function makeLog(rot){
-  const log = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.12,1.3,8), logMat);
-  log.rotation.z = Math.PI/2;
-  log.rotation.y = rot;
-  log.position.y = 0.18;
-  log.castShadow = true;
-  return log;
+/* ---------- Logs ---------- */
+const logMat = new THREE.MeshStandardMaterial({ color:0x3e2511, roughness:0.95, flatShading:true });
+const logEndMat = new THREE.MeshStandardMaterial({ color:0x5a3320, roughness:0.9, flatShading:true });
+function makeLog(rot, raised){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.115,1.4,9), logMat);
+  body.rotation.z = Math.PI/2;
+  body.castShadow = true;
+  // end caps for realism
+  [-0.7,0.7].forEach(x=>{
+    const cap = new THREE.Mesh(new THREE.CircleGeometry(0.09,9), logEndMat);
+    cap.position.set(x,0,0);
+    cap.rotation.y = x>0 ? 0 : Math.PI;
+    g.add(cap);
+  });
+  g.add(body);
+  g.rotation.y = rot;
+  g.position.y = raised ? 0.22 : 0.17;
+  return g;
 }
-[0,0.7,1.4,2.1].forEach(r => scene.add(makeLog(r)));
+[0,0.72,1.42,2.14].forEach((r,i) => scene.add(makeLog(r, i<2)));
 
-// --- fire (layered sprites + glow) ---
+/* ---------- ENHANCED FIRE SYSTEM ---------- */
 const fireGroup = new THREE.Group();
-fireGroup.position.set(0,0.25,0);
+fireGroup.position.set(0, 0.22, 0);
 scene.add(fireGroup);
-function fireTexture(){
-  const c = document.createElement('canvas'); c.width=64; c.height=64;
+
+// Multi-layer fire sprites — inner core (white-yellow), mid (orange), outer (red, fading)
+function makeFireTex(innerCol, outerCol){
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
   const ctx = c.getContext('2d');
-  const g = ctx.createRadialGradient(32,32,2,32,32,32);
-  g.addColorStop(0,'rgba(255,230,180,1)');
-  g.addColorStop(0.4,'rgba(255,140,40,0.9)');
-  g.addColorStop(1,'rgba(255,80,20,0)');
-  ctx.fillStyle = g; ctx.fillRect(0,0,64,64);
+  const g = ctx.createRadialGradient(64,64,2,64,64,64);
+  g.addColorStop(0,   innerCol);
+  g.addColorStop(0.3, outerCol);
+  g.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,128,128);
   return new THREE.CanvasTexture(c);
 }
-const flameTex = fireTexture();
-const flames = [];
-for (let i=0;i<10;i++){
-  const mat = new THREE.SpriteMaterial({ map:flameTex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false });
-  const spr = new THREE.Sprite(mat);
-  const sc = 0.4+Math.random()*0.4;
-  spr.scale.set(sc, sc*1.4, 1);
-  spr.position.set((Math.random()-0.5)*0.3, Math.random()*0.6, (Math.random()-0.5)*0.3);
-  spr.userData.speed = 0.6+Math.random()*0.6;
-  spr.userData.offset = Math.random()*Math.PI*2;
-  fireGroup.add(spr);
-  flames.push(spr);
-}
 
-// --- rocks scattered ---
-for (let i=0;i<10;i++){
-  const a = Math.random()*Math.PI*2, r = 5.5+Math.random()*5;
-  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.3+Math.random()*0.4,0), stoneMat);
-  rock.position.set(Math.cos(a)*r, 0.2, Math.sin(a)*r);
-  rock.rotation.set(Math.random(),Math.random(),Math.random());
+const texCore  = makeFireTex('rgba(255,255,210,1)',  'rgba(255,180,60,0.92)');
+const texMid   = makeFireTex('rgba(255,160,40,0.95)','rgba(255,80,10,0.8)');
+const texOuter = makeFireTex('rgba(255,90,20,0.7)',  'rgba(180,30,5,0)');
+const texEmber = makeFireTex('rgba(255,220,100,1)',  'rgba(255,100,0,0)');
+
+const flames = [];
+const FLAME_LAYERS = [
+  { tex:texCore,  count:6,  scaleBase:0.28, scaleVar:0.18, yBase:0.05, yHeight:0.65, opacity:0.95 },
+  { tex:texMid,   count:8,  scaleBase:0.38, scaleVar:0.24, yBase:0.0,  yHeight:0.88, opacity:0.85 },
+  { tex:texOuter, count:7,  scaleBase:0.5,  scaleVar:0.28, yBase:-0.05,yHeight:1.05, opacity:0.65 },
+  { tex:texEmber, count:5,  scaleBase:0.12, scaleVar:0.08, yBase:0.1,  yHeight:0.45, opacity:0.9 },
+];
+
+FLAME_LAYERS.forEach(layer => {
+  for (let i=0;i<layer.count;i++){
+    const mat = new THREE.SpriteMaterial({
+      map:layer.tex, transparent:true,
+      blending:THREE.AdditiveBlending, depthWrite:false,
+      opacity:layer.opacity
+    });
+    const spr = new THREE.Sprite(mat);
+    const sc = layer.scaleBase + Math.random()*layer.scaleVar;
+    spr.scale.set(sc, sc*1.5, 1);
+    spr.position.set(
+      (Math.random()-0.5)*0.28,
+      layer.yBase + Math.random()*0.2,
+      (Math.random()-0.5)*0.28
+    );
+    spr.userData = {
+      speed:   0.5 + Math.random()*0.8,
+      offset:  Math.random()*Math.PI*2,
+      xSwing:  (Math.random()-0.5)*0.12,
+      yHeight: layer.yHeight,
+      yBase:   layer.yBase,
+      sc,
+      isCore:  layer.tex === texCore || layer.tex === texEmber,
+    };
+    fireGroup.add(spr);
+    flames.push(spr);
+  }
+});
+
+/* Floating ember particles */
+const EMBER_COUNT = 40;
+const emberGeo  = new THREE.BufferGeometry();
+const emberPos  = new Float32Array(EMBER_COUNT * 3);
+const emberData = [];
+for (let i=0;i<EMBER_COUNT;i++){
+  emberData.push({
+    x: (Math.random()-0.5)*0.6,
+    y: 0.3 + Math.random()*0.4,
+    z: (Math.random()-0.5)*0.6,
+    vx: (Math.random()-0.5)*0.008,
+    vy: 0.012 + Math.random()*0.018,
+    vz: (Math.random()-0.5)*0.008,
+    life: Math.random(),
+    maxLife: 0.6 + Math.random()*1.4,
+  });
+}
+emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPos,3));
+const emberMat = new THREE.PointsMaterial({
+  color:0xff9944, size:0.045, transparent:true, opacity:0.9,
+  sizeAttenuation:true, blending:THREE.AdditiveBlending, depthWrite:false,
+});
+const embers = new THREE.Points(emberGeo, emberMat);
+embers.position.set(0,0.2,0);
+scene.add(embers);
+
+/* Glow halo around fire */
+function makeGlowTex(){
+  const c = document.createElement('canvas'); c.width=256; c.height=256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(128,128,8,128,128,128);
+  g.addColorStop(0,   'rgba(255,140,40,0.35)');
+  g.addColorStop(0.4, 'rgba(255,80,20,0.12)');
+  g.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,256,256);
+  return new THREE.CanvasTexture(c);
+}
+const glowSpr = new THREE.Sprite(new THREE.SpriteMaterial({
+  map:makeGlowTex(), transparent:true, blending:THREE.AdditiveBlending, depthWrite:false
+}));
+glowSpr.scale.set(5.5,4.5,1);
+glowSpr.position.set(0,1.2,0);
+scene.add(glowSpr);
+
+/* ---------- Scattered rocks ---------- */
+for (let i=0;i<14;i++){
+  const a = Math.random()*Math.PI*2;
+  const r = 5+Math.random()*7;
+  const geoTypes = [
+    new THREE.DodecahedronGeometry(0.25+Math.random()*0.45,0),
+    new THREE.OctahedronGeometry(0.2+Math.random()*0.35,1),
+    new THREE.BoxGeometry(0.4+Math.random()*0.5,0.2+Math.random()*0.25,0.35+Math.random()*0.45),
+  ];
+  const rock = new THREE.Mesh(geoTypes[Math.floor(Math.random()*3)], Math.random()>0.5?stoneMat:darkStoneMat);
+  rock.position.set(Math.cos(a)*r, 0.15+Math.random()*0.1, Math.sin(a)*r);
+  rock.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,Math.random()*Math.PI);
   rock.castShadow = true; rock.receiveShadow = true;
   scene.add(rock);
 }
 
-// --- pine trees ---
-function makeTree(){
+/* ---------- REALISTIC PINE TREES ---------- */
+function makeTree(variant){
   const g = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.12,0.6,6), new THREE.MeshStandardMaterial({color:0x2a1f17, flatShading:true}));
-  trunk.position.y = 0.3; trunk.castShadow=true; g.add(trunk);
-  const leafMat = new THREE.MeshStandardMaterial({ color:0x14302a, flatShading:true });
-  for (let i=0;i<3;i++){
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.55-i*0.13, 0.9, 7), leafMat);
-    cone.position.y = 0.65 + i*0.55;
+  const trunkMat = new THREE.MeshStandardMaterial({color:0x1e1208, roughness:0.98, flatShading:true});
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.13,0.75,7), trunkMat);
+  trunk.position.y = 0.37; trunk.castShadow=true; g.add(trunk);
+
+  // Multi-layer canopy with color variation for depth
+  const greens = [0x0d2b1f,0x0f3325,0x112e22,0x0e2820,0x132f24];
+  const layers = variant===1 ? 4 : (variant===2 ? 3 : 5);
+  for (let i=0;i<layers;i++){
+    const pct = i/layers;
+    const leafMat = new THREE.MeshStandardMaterial({
+      color: greens[i%greens.length], roughness:0.92, flatShading:true
+    });
+    const baseR = (0.7 - pct*0.22) * (0.85 + Math.random()*0.3);
+    const h     = (0.9 + Math.random()*0.25) * (variant===2?1.4:1);
+    const cone  = new THREE.Mesh(new THREE.ConeGeometry(baseR, h, 7), leafMat);
+    cone.position.y = 0.7 + i*(h*0.42);
+    cone.rotation.y = (i*0.6 + Math.random()*0.3);
     cone.castShadow = true;
     g.add(cone);
-  }
-  return g;
-}
-for (let i=0;i<16;i++){
-  const a = Math.random()*Math.PI*2, r = 9+Math.random()*5.5;
-  const tree = makeTree();
-  tree.position.set(Math.cos(a)*r, 0, Math.sin(a)*r);
-  const s = 0.8+Math.random()*0.8;
-  tree.scale.set(s,s,s);
-  scene.add(tree);
-}
-
-// --- mountain ranges (layered for depth, far ones hazier/bluer) ---
-function makeMountainRange(radius, height, color, count, snowCapped){
-  const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color, flatShading:true, roughness:1 });
-  const snowMat = new THREE.MeshStandardMaterial({ color:0xe7edf8, flatShading:true, emissive:0x2a3a66, emissiveIntensity:0.25, roughness:0.9 });
-  for (let i=0;i<count;i++){
-    const a = (i/count)*Math.PI*2 + (Math.random()-0.5)*0.25;
-    const h = height * (0.55 + Math.random()*0.8);
-    const w = h * (0.85 + Math.random()*0.55);
-    const peak = new THREE.Mesh(new THREE.ConeGeometry(w, h, 5), mat);
-    const y = h/2 - 0.6;
-    peak.position.set(Math.cos(a)*radius, y, Math.sin(a)*radius);
-    peak.rotation.y = Math.random()*Math.PI;
-    g.add(peak);
-    if (snowCapped && Math.random() > 0.35){
-      const cap = new THREE.Mesh(new THREE.ConeGeometry(w*0.42, h*0.34, 5), snowMat);
-      cap.position.set(peak.position.x, y + h*0.4, peak.position.z);
-      cap.rotation.y = peak.rotation.y;
-      g.add(cap);
+    // Add overlapping layer for fullness
+    if (i>0 && i<layers-1){
+      const leaf2 = new THREE.Mesh(new THREE.ConeGeometry(baseR*1.12,h*0.6,6), leafMat);
+      leaf2.position.y = cone.position.y - h*0.22;
+      leaf2.rotation.y = cone.rotation.y + 0.45;
+      leaf2.castShadow = true;
+      g.add(leaf2);
     }
   }
   return g;
 }
-scene.add(makeMountainRange(30, 9.5, 0x18233f, 20, true));   // far range — hazy, moonlit snowcaps
-scene.add(makeMountainRange(23, 6.2, 0x10172c, 17, false));  // near range — darker silhouette
 
-// --- moon glow ---
+for (let i=0;i<22;i++){
+  const a = Math.random()*Math.PI*2;
+  const r = 9.5 + Math.random()*7;
+  const tree = makeTree(i%3);
+  tree.position.set(Math.cos(a)*r, 0, Math.sin(a)*r);
+  const s = 0.75 + Math.random()*1.1;
+  tree.scale.set(s,s*(0.9+Math.random()*0.3),s);
+  scene.add(tree);
+}
+
+/* ---------- REALISTIC MOUNTAIN RANGES ---------- */
+// Strategy: each "mountain" is a cluster of overlapping cones + base
+// to create natural jagged ridgelines with snow caps, cliff faces,
+// and atmospheric haze scaled by distance.
+
+function makePeak(width, height, roughness, col, snowCol, snowFrac){
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({
+    color:col, flatShading:true, roughness:0.96
+  });
+  const snowMat = new THREE.MeshStandardMaterial({
+    color:snowCol, flatShading:true, roughness:0.85,
+    emissive:snowCol, emissiveIntensity:0.07,
+  });
+
+  // Main peak cone
+  const peakSides = 5 + Math.floor(Math.random()*3);
+  const peak = new THREE.Mesh(new THREE.ConeGeometry(width*0.5, height, peakSides), mat);
+  peak.rotation.y = Math.random()*Math.PI;
+  peak.position.y = height*0.5;
+  peak.castShadow = true;
+  g.add(peak);
+
+  // Side ridges for organic silhouette
+  for (let j=0;j<3;j++){
+    const ridgeW = width*(0.2+Math.random()*0.22);
+    const ridgeH = height*(0.45+Math.random()*0.38);
+    const ridge = new THREE.Mesh(new THREE.ConeGeometry(ridgeW, ridgeH, 5), mat);
+    const ra = (j/3)*Math.PI*2 + Math.random()*0.5;
+    ridge.position.set(Math.cos(ra)*width*0.28, ridgeH*0.5, Math.sin(ra)*width*0.28);
+    ridge.rotation.y = Math.random()*Math.PI;
+    ridge.castShadow = true;
+    g.add(ridge);
+  }
+
+  // Snow cap
+  if (snowFrac > 0){
+    const capH  = height * snowFrac;
+    const capW  = width  * 0.28 * snowFrac;
+    const cap   = new THREE.Mesh(new THREE.ConeGeometry(capW, capH, peakSides), snowMat);
+    cap.position.y = height - capH*0.45;
+    cap.rotation.y = peak.rotation.y;
+    g.add(cap);
+    // Snow drip tongues
+    for (let j=0;j<4;j++){
+      const ta = (j/4)*Math.PI*2;
+      const dripH = capH*(0.3+Math.random()*0.4);
+      const drip  = new THREE.Mesh(new THREE.ConeGeometry(capW*0.22, dripH, 4), snowMat);
+      drip.position.set(
+        Math.cos(ta)*capW*0.5,
+        height - capH*0.5 - dripH*0.3,
+        Math.sin(ta)*capW*0.5
+      );
+      g.add(drip);
+    }
+  }
+  return g;
+}
+
+function buildMountainRange(opts){
+  // opts: { radius, count, heightRange:[min,max], widthRange:[min,max],
+  //          color, snowColor, snowFrac, jitter, yOffset }
+  const g = new THREE.Group();
+  for (let i=0;i<opts.count;i++){
+    const a = (i/opts.count)*Math.PI*2 + (Math.random()-0.5)*opts.jitter;
+    const r = opts.radius * (0.88 + Math.random()*0.22);
+    const h = opts.heightRange[0] + Math.random()*(opts.heightRange[1]-opts.heightRange[0]);
+    const w = opts.widthRange[0]  + Math.random()*(opts.widthRange[1]-opts.widthRange[0]);
+
+    const peak = makePeak(w, h, 0.9, opts.color, opts.snowColor, opts.snowFrac*(0.5+Math.random()*1.1));
+    peak.position.set(Math.cos(a)*r, opts.yOffset||0, Math.sin(a)*r);
+    peak.rotation.y = Math.random()*Math.PI*2;
+    g.add(peak);
+  }
+  return g;
+}
+
+// Far range — moonlit, slightly bluish, tall with prominent snowcaps
+scene.add(buildMountainRange({
+  radius:38, count:26,
+  heightRange:[10,18], widthRange:[7,14],
+  color:     new THREE.Color(0x141e38),
+  snowColor: new THREE.Color(0xd4dff5),
+  snowFrac: 0.28,
+  jitter: 0.52,
+  yOffset: -1.5,
+}));
+
+// Mid range — darker, closer, less snow
+scene.add(buildMountainRange({
+  radius:26, count:22,
+  heightRange:[6,11],  widthRange:[5,9],
+  color:     new THREE.Color(0x0b1020),
+  snowColor: new THREE.Color(0xbecde8),
+  snowFrac: 0.12,
+  jitter: 0.65,
+  yOffset: -0.5,
+}));
+
+// Near foothills — very dark, mostly silhouette
+scene.add(buildMountainRange({
+  radius:18, count:16,
+  heightRange:[3,6],   widthRange:[4,7],
+  color:     new THREE.Color(0x070d19),
+  snowColor: new THREE.Color(0x9aacc8),
+  snowFrac: 0,
+  jitter: 0.8,
+  yOffset: 0,
+}));
+
+/* ---------- Moon with realistic halo ---------- */
 function makeMoon(){
-  const c = document.createElement('canvas'); c.width = 160; c.height = 160;
-  const ctx = c.getContext('2d');
-  const grad = ctx.createRadialGradient(80,80,4,80,80,80);
-  grad.addColorStop(0, 'rgba(255,255,248,1)');
-  grad.addColorStop(0.35, 'rgba(225,235,255,0.55)');
-  grad.addColorStop(1, 'rgba(225,235,255,0)');
-  ctx.fillStyle = grad; ctx.fillRect(0,0,160,160);
-  const tex = new THREE.CanvasTexture(c);
-  const mat = new THREE.SpriteMaterial({ map:tex, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending });
-  const spr = new THREE.Sprite(mat);
-  spr.scale.set(7,7,1);
-  spr.position.set(-15, 17, -19);
-  return spr;
+  const g = new THREE.Group();
+
+  // Core disc
+  const c1 = document.createElement('canvas'); c1.width=256; c1.height=256;
+  const x1 = c1.getContext('2d');
+  // moon surface with subtle craters
+  const gm = x1.createRadialGradient(128,128,0,128,128,110);
+  gm.addColorStop(0,   'rgba(255,255,248,1)');
+  gm.addColorStop(0.6, 'rgba(230,240,255,0.95)');
+  gm.addColorStop(1,   'rgba(180,200,240,0)');
+  x1.fillStyle = gm;
+  x1.fillRect(0,0,256,256);
+  // crater hints
+  [[80,90,18],[130,70,12],[160,140,8],[60,150,14],[110,110,6]].forEach(([cx,cy,cr])=>{
+    x1.beginPath();
+    x1.arc(cx,cy,cr,0,Math.PI*2);
+    x1.fillStyle='rgba(180,195,230,0.18)';
+    x1.fill();
+  });
+  const moonSpr = new THREE.Sprite(new THREE.SpriteMaterial({
+    map:new THREE.CanvasTexture(c1), transparent:true, depthWrite:false
+  }));
+  moonSpr.scale.set(3.2,3.2,1);
+  g.add(moonSpr);
+
+  // Large halo
+  const c2 = document.createElement('canvas'); c2.width=512; c2.height=512;
+  const x2 = c2.getContext('2d');
+  const gh = x2.createRadialGradient(256,256,20,256,256,256);
+  gh.addColorStop(0,   'rgba(200,218,255,0.22)');
+  gh.addColorStop(0.35,'rgba(180,205,255,0.06)');
+  gh.addColorStop(1,   'rgba(0,0,0,0)');
+  x2.fillStyle = gh; x2.fillRect(0,0,512,512);
+  const haloSpr = new THREE.Sprite(new THREE.SpriteMaterial({
+    map:new THREE.CanvasTexture(c2), transparent:true,
+    blending:THREE.AdditiveBlending, depthWrite:false
+  }));
+  haloSpr.scale.set(14,14,1);
+  g.add(haloSpr);
+
+  g.position.set(-18,22,-25);
+  return g;
 }
 scene.add(makeMoon());
 
-// --- stars ---
+/* ---------- Stars ---------- */
 function makeStars(){
-  const count = 220;
-  const positions = new Float32Array(count*3);
+  const count = 420;
+  const pos  = new Float32Array(count*3);
+  const size = new Float32Array(count);
   for (let i=0;i<count;i++){
     const a = Math.random()*Math.PI*2;
-    const r = 32 + Math.random()*16;
-    const y = 7 + Math.random()*17;
-    positions[i*3] = Math.cos(a)*r;
-    positions[i*3+1] = y;
-    positions[i*3+2] = Math.sin(a)*r;
+    const r = 38 + Math.random()*28;
+    const y = 6  + Math.random()*24;
+    pos[i*3]   = Math.cos(a)*r;
+    pos[i*3+1] = y;
+    pos[i*3+2] = Math.sin(a)*r;
+    size[i] = 0.06 + Math.random()*0.12;
   }
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const mat = new THREE.PointsMaterial({ color:0xffffff, size:0.14, transparent:true, opacity:0.8, sizeAttenuation:true });
-  return new THREE.Points(geo, mat);
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('size',     new THREE.BufferAttribute(size,1));
+  return new THREE.Points(geo, new THREE.PointsMaterial({
+    color:0xffffff, size:0.12, transparent:true, opacity:0.9,
+    sizeAttenuation:true, vertexColors:false,
+  }));
 }
 scene.add(makeStars());
 
-// --- tents ---
-function makeTent(color){
+/* ---------- Tents (improved) ---------- */
+function makeTent(color, hasLight){
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color, roughness:0.95, flatShading:true });
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0,0.95,1.15,4), mat);
-  body.rotation.y = Math.PI/4;
-  body.position.y = 0.58;
+  const tentMat = new THREE.MeshStandardMaterial({ color, roughness:0.92, flatShading:true });
+  // Domed tent body — two intersecting cones
+  const body = new THREE.Mesh(new THREE.ConeGeometry(1.0,1.2,5), tentMat);
+  body.rotation.y = Math.PI/5;
+  body.position.y = 0.6;
   body.castShadow = true; body.receiveShadow = true;
   g.add(body);
-  const doorMat = new THREE.MeshStandardMaterial({ color:0x10141c, roughness:1 });
-  const door = new THREE.Mesh(new THREE.ConeGeometry(0.32,0.55,3), doorMat);
-  door.position.set(0,0.3,0.62);
-  door.rotation.y = Math.PI;
-  g.add(door);
+  // Front entrance arch
+  const archMat = new THREE.MeshStandardMaterial({ color:0x08080f, roughness:1 });
+  const arch = new THREE.Mesh(new THREE.ConeGeometry(0.32,0.62,4), archMat);
+  arch.position.set(0,0.34,0.7);
+  arch.rotation.y = Math.PI;
+  g.add(arch);
+  // Tent pegs
+  const pegMat = new THREE.MeshStandardMaterial({ color:0x666660 });
+  for (let j=0;j<4;j++){
+    const pa = (j/4)*Math.PI*2;
+    const peg = new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.02,0.3,4), pegMat);
+    peg.position.set(Math.cos(pa)*0.8,0.06,Math.sin(pa)*0.8);
+    peg.rotation.z = 0.22;
+    g.add(peg);
+  }
+  // Inner warm glow if occupied
+  if (hasLight){
+    const glow = new THREE.PointLight(0xff9944, 0.5, 2, 2);
+    glow.position.set(0,0.5,0);
+    g.add(glow);
+    // warm patch on tent canvas
+    const glowTex = (() => {
+      const c = document.createElement('canvas'); c.width=32; c.height=32;
+      const ctx = c.getContext('2d');
+      const gr = ctx.createRadialGradient(16,16,1,16,16,16);
+      gr.addColorStop(0,'rgba(255,180,80,0.38)');
+      gr.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=gr; ctx.fillRect(0,0,32,32);
+      return new THREE.CanvasTexture(c);
+    })();
+    const glowSp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map:glowTex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false
+    }));
+    glowSp.scale.set(1.4,1.4,1);
+    glowSp.position.set(0,0.7,0.55);
+    g.add(glowSp);
+  }
   return g;
 }
-const tentColors = [0x3a4f8c,0x2f6f63,0x6b3f5c,0x3f5c6b];
-const tentSpots = [[-6.4,-2.2],[6.6,-2.4],[-5.6,3.0],[6.0,3.4],[-7.4,1.2],[7.4,0.6]];
-tentSpots.forEach((p,i)=>{
-  const t = makeTent(tentColors[i % tentColors.length]);
-  t.position.set(p[0],0,p[1]);
+const tentDefs = [
+  [-6.6,-2.4,0x3a4f8c,true],
+  [6.8,-2.6,0x2f6f63,true],
+  [-5.8,3.2,0x5c3f72,false],
+  [6.2,3.6,0x3f5c6b,false],
+  [-7.6,1.4,0x724a2f,false],
+  [7.6,0.8,0x2f5060,true],
+];
+tentDefs.forEach(([x,z,col,lit],i)=>{
+  const t = makeTent(col,lit);
+  t.position.set(x,0,z);
   t.rotation.y = Math.random()*Math.PI*2;
-  t.scale.setScalar(0.9+Math.random()*0.4);
+  t.scale.setScalar(0.88+Math.random()*0.35);
   scene.add(t);
 });
 
-// --- lantern + boombox props ---
+/* ---------- Lantern + boombox props ---------- */
 function makeLantern(){
   const g = new THREE.Group();
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,0.05,8), new THREE.MeshStandardMaterial({color:0x2a2a2a}));
+  const metalMat = new THREE.MeshStandardMaterial({color:0x222224, roughness:0.5, metalness:0.7});
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.05,8), metalMat);
   g.add(base);
-  const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.22,8), new THREE.MeshStandardMaterial({color:0xffcf8a, emissive:0xffaa44, emissiveIntensity:1.4, transparent:true, opacity:0.85}));
-  glass.position.y = 0.16;
-  g.add(glass);
-  const top = new THREE.Mesh(new THREE.ConeGeometry(0.1,0.1,8), new THREE.MeshStandardMaterial({color:0x2a2a2a}));
-  top.position.y = 0.32;
-  g.add(top);
+  const cage1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.11,0.26,6,1,true), metalMat);
+  cage1.position.y = 0.17; g.add(cage1);
+  const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.095,0.24,8), new THREE.MeshStandardMaterial({
+    color:0xffcf8a, emissive:0xffaa44, emissiveIntensity:2.2,
+    transparent:true, opacity:0.78, roughness:0.3,
+  }));
+  glass.position.y = 0.18; g.add(glass);
+  const top = new THREE.Mesh(new THREE.ConeGeometry(0.105,0.12,6), metalMat);
+  top.position.y = 0.34; g.add(top);
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(0.075,0.012,6,12,Math.PI), metalMat);
+  handle.position.y = 0.42; handle.rotation.x = -Math.PI*0.35; g.add(handle);
   return g;
 }
 const lantern = makeLantern();
-lantern.position.set(-4.6,0.1,3.6);
+lantern.position.set(-4.6,0.12,3.6);
 scene.add(lantern);
 
 function makeBoombox(){
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color:0x222226, flatShading:true });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.34,0.22), mat);
-  body.position.y = 0.2; body.castShadow = true;
-  g.add(body);
-  const spkMat = new THREE.MeshStandardMaterial({ color:0x111114 });
-  [-0.22,0.22].forEach(x=>{
-    const spk = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.04,12), spkMat);
-    spk.rotation.x = Math.PI/2; spk.position.set(x,0.2,0.12);
-    g.add(spk);
+  const bodyMat = new THREE.MeshStandardMaterial({ color:0x1a1a1f, roughness:0.8, metalness:0.15, flatShading:true });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.82,0.38,0.25), bodyMat);
+  body.position.y=0.22; body.castShadow=true; g.add(body);
+  const accentMat = new THREE.MeshStandardMaterial({ color:0xff4422, roughness:0.9 });
+  const strip = new THREE.Mesh(new THREE.BoxGeometry(0.82,0.035,0.26), accentMat);
+  strip.position.y=0.34; g.add(strip);
+  const spkMat = new THREE.MeshStandardMaterial({ color:0x0a0a0c, roughness:0.95 });
+  const grillMat = new THREE.MeshStandardMaterial({ color:0x333338, roughness:0.9 });
+  [-0.27,0.27].forEach(x=>{
+    const spk = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.045,16), grillMat);
+    spk.rotation.x=Math.PI/2; spk.position.set(x,0.22,0.14); g.add(spk);
+    const cone2 = new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.065,0.04,12), spkMat);
+    cone2.rotation.x=Math.PI/2; cone2.position.set(x,0.22,0.14); g.add(cone2);
   });
+  const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.22,4), bodyMat);
+  ant.position.set(0.36,0.44,0); g.add(ant);
   return g;
 }
 const boombox = makeBoombox();
-boombox.position.set(2.4,0.18,-1.6);
-boombox.rotation.y = 0.4;
+boombox.position.set(2.5,0.18,-1.7);
+boombox.rotation.y = 0.45;
 scene.add(boombox);
 
-/* ============================================================
-   SEATS + CHIBI AVATARS (replicating the reference: stumps, low
-   chairs, a folding camp chair, a rocking chair, around the fire)
-   ============================================================ */
+/* ================================================================
+   SEATS + CHIBI AVATARS
+   Reworked toward a rounder, big-headed chibi proportion with
+   readable hairstyles per person (bob / cap / curls / long hair /
+   short hair), softer skin shading, and a gentle forward-leaning
+   "warming hands by the fire" seated pose.
+   ================================================================ */
 const SEAT_DEFS = [
-  { angle: 200, dist: 1.95, type:'stump' },
-  { angle: 270, dist: 2.0,  type:'chair' },
-  { angle: 340, dist: 1.95, type:'rocker' },
-  { angle: 35,  dist: 1.95, type:'lowchair' },
-  { angle: 110, dist: 1.95, type:'stump' },
+  { angle: 200, dist: 2.0, type:'stump' },
+  { angle: 270, dist: 2.05,type:'chair' },
+  { angle: 340, dist: 2.0, type:'rocker' },
+  { angle:  35, dist: 2.0, type:'lowchair' },
+  { angle: 110, dist: 2.0, type:'stump' },
 ];
 
 function deg(a){ return a*Math.PI/180; }
 
+// Hair colors pool for variety
+const HAIR_COLORS = [0x2a1f1a,0x6b4226,0x1a1010,0x8b6914,0x3c2a1a,0x111111,0x8a4a20];
+const SKIN_TONES  = [0xe8c49a,0xd4956a,0xc4784a,0xf2d6b5,0xa0652f,0xe0b888];
+// Hairstyle assigned per seat index: 0=bob(Alice-like),1=cap(Bob-like),
+// 2=curls(Leo-like),3=long(Emma-like),4=short(You-like)
+const HAIRSTYLES = ['bob','cap','curls','long','short'];
+
 function makeStump(){
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.36,0.4,10), new THREE.MeshStandardMaterial({color:0x5a3d27, flatShading:true}));
-  m.position.y = 0.2; m.castShadow = true; m.receiveShadow = true;
-  return m;
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({color:0x4a3020,roughness:0.95,flatShading:true});
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.4,0.4,11), mat);
+  body.position.y=0.2; body.castShadow=true; body.receiveShadow=true;
+  // Tree rings on top
+  const ringMat = new THREE.MeshStandardMaterial({color:0x3a2414, roughness:1});
+  const rings = new THREE.Mesh(new THREE.RingGeometry(0.08,0.34,11), ringMat);
+  rings.position.y=0.401; rings.rotation.x=-Math.PI/2;
+  g.add(body,rings);
+  return g;
 }
+
 function makeChair(color){
   const g = new THREE.Group();
-  const frame = new THREE.MeshStandardMaterial({ color:0x6b4a2e, flatShading:true });
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.06,0.55), new THREE.MeshStandardMaterial({color, flatShading:true}));
-  seat.position.y = 0.42; seat.castShadow = true;
-  const back = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.55,0.06), new THREE.MeshStandardMaterial({color, flatShading:true}));
-  back.position.set(0,0.68,-0.26); back.castShadow = true;
-  [[-0.27,-0.24],[0.27,-0.24],[-0.27,0.24],[0.27,0.24]].forEach(p=>{
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.42,6), frame);
-    leg.position.set(p[0],0.2,p[1]);
-    g.add(leg);
+  const frameMat = new THREE.MeshStandardMaterial({color:0x5a3a1e,roughness:0.9,flatShading:true});
+  const seatMat  = new THREE.MeshStandardMaterial({color,roughness:0.85,flatShading:true});
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.66,0.07,0.58), seatMat);
+  seat.position.y=0.44; seat.castShadow=true;
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.66,0.58,0.07), seatMat);
+  back.position.set(0,0.72,-0.28); back.castShadow=true;
+  [[-0.28,-0.26],[0.28,-0.26],[-0.28,0.26],[0.28,0.26]].forEach(p=>{
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.44,6), frameMat);
+    leg.position.set(p[0],0.21,p[1]); g.add(leg);
   });
-  g.add(seat, back);
+  // Cross brace
+  const brace = new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.56,5), frameMat);
+  brace.position.y=0.22; brace.rotation.z=Math.PI/2; g.add(brace);
+  g.add(seat,back);
   return g;
 }
+
 function makeLowChair(color){
   const g = makeChair(color);
-  g.scale.set(1,0.7,1);
+  g.scale.set(1,0.72,1);
   return g;
 }
+
 function makeRocker(){
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color:0xb5482e, flatShading:true });
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.07,0.5), mat); seat.position.y=0.46;
-  const back = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.6,0.07), mat); back.position.set(0,0.74,-0.24);
-  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.07,0.5), mat); armL.position.set(-0.26,0.5,0);
-  const armR = armL.clone(); armR.position.x = 0.26;
-  const rockerCurveMat = new THREE.MeshStandardMaterial({color:0x3a2316, flatShading:true});
-  [-0.2,0.2].forEach(z=>{
-    const curve = new THREE.Mesh(new THREE.TorusGeometry(0.34,0.025,6,16,Math.PI*0.8), rockerCurveMat);
-    curve.rotation.z = Math.PI/2 + 0.4;
-    curve.position.set(0,0.1,z);
-    g.add(curve);
+  const mat = new THREE.MeshStandardMaterial({color:0xb5402a,roughness:0.9,flatShading:true});
+  const woodMat = new THREE.MeshStandardMaterial({color:0x3a2010,roughness:0.98,flatShading:true});
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.58,0.08,0.52), mat); seat.position.y=0.48;
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.58,0.62,0.08), mat); back.position.set(0,0.78,-0.26);
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,0.52), mat); armL.position.set(-0.28,0.52,0);
+  const armR = armL.clone(); armR.position.x=0.28;
+  [-0.22,0.22].forEach(z=>{
+    const curve = new THREE.Mesh(new THREE.TorusGeometry(0.36,0.028,7,18,Math.PI*0.85), woodMat);
+    curve.rotation.z=Math.PI/2+0.4; curve.position.set(0,0.12,z); g.add(curve);
   });
   g.add(seat,back,armL,armR);
-  g.castShadow = true;
   return g;
 }
+
 function buildSeat(type, color){
-  if (type==='stump') return makeStump();
-  if (type==='chair') return makeChair(color);
+  if (type==='stump')    return makeStump();
+  if (type==='chair')    return makeChair(color);
   if (type==='lowchair') return makeLowChair(color);
-  if (type==='rocker') return makeRocker();
+  if (type==='rocker')   return makeRocker();
   return makeStump();
 }
 
-function skinTone(){ return 0xe3ad84; }
+/* ---- Hairstyle builders, attached relative to head center (0,0,0) ---- */
+function addHair_bob(g, hairMat, headR){
+  // Smooth rounded bob with a side part and a slight flip at the ends
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(headR*1.06,16,13,0,Math.PI*2,0,Math.PI*0.62), hairMat);
+  cap.position.y = headR*0.12;
+  g.add(cap);
+  // side panels framing the face
+  [-1,1].forEach(side=>{
+    const panel = new THREE.Mesh(new THREE.SphereGeometry(headR*0.42,10,10), hairMat);
+    panel.position.set(side*headR*0.92, -headR*0.18, headR*0.18);
+    panel.scale.set(0.55,1.15,0.7);
+    g.add(panel);
+  });
+  // soft fringe
+  const fringe = new THREE.Mesh(new THREE.SphereGeometry(headR*0.98,14,8,0,Math.PI*2,0,Math.PI*0.3), hairMat);
+  fringe.position.set(0, headR*0.32, headR*0.05);
+  g.add(fringe);
+}
+function addHair_cap(g, hairMat, headR, capColor){
+  // Short hair peeking out + a baseball cap on top
+  const short = new THREE.Mesh(new THREE.SphereGeometry(headR*1.02,14,11,0,Math.PI*2,0,Math.PI*0.5), hairMat);
+  short.position.y = headR*0.18;
+  g.add(short);
+  const capMat = new THREE.MeshStandardMaterial({color:capColor, flatShading:true, roughness:0.85});
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(headR*1.12,14,10,0,Math.PI*2,0,Math.PI*0.46), capMat);
+  dome.position.y = headR*0.32;
+  g.add(dome);
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(headR*0.62,headR*0.62,headR*0.06,16,1,false,0,Math.PI), capMat);
+  brim.position.set(0, headR*0.22, headR*0.62);
+  brim.rotation.x = -0.06;
+  g.add(brim);
+}
+function addHair_curls(g, hairMat, headR){
+  // Cluster of small spheres for curly afro-like texture
+  const curlCount = 13;
+  for (let i=0;i<curlCount;i++){
+    const phi = Math.acos(1 - 2*(i+0.5)/curlCount) * 0.62;
+    const theta = i * 2.4;
+    const r = headR*1.04;
+    const cx = r*Math.sin(phi)*Math.cos(theta);
+    const cy = r*Math.cos(phi)*0.85 + headR*0.18;
+    const cz = r*Math.sin(phi)*Math.sin(theta);
+    const curl = new THREE.Mesh(new THREE.SphereGeometry(headR*0.32,8,8), hairMat);
+    curl.position.set(cx,cy,cz);
+    g.add(curl);
+  }
+  const base = new THREE.Mesh(new THREE.SphereGeometry(headR*0.95,14,11,0,Math.PI*2,0,Math.PI*0.5), hairMat);
+  base.position.y = headR*0.1;
+  g.add(base);
+}
+function addHair_long(g, hairMat, headR){
+  // Crown + long hair draping past the shoulders on both sides and back
+  const crown = new THREE.Mesh(new THREE.SphereGeometry(headR*1.04,16,12,0,Math.PI*2,0,Math.PI*0.55), hairMat);
+  crown.position.y = headR*0.15;
+  g.add(crown);
+  [-1,1].forEach(side=>{
+    const strand = new THREE.Mesh(new THREE.CapsuleGeometry(headR*0.3,headR*1.5,4,8), hairMat);
+    strand.position.set(side*headR*0.78, -headR*1.05, headR*0.06);
+    strand.rotation.z = side*0.07;
+    g.add(strand);
+  });
+  const back = new THREE.Mesh(new THREE.CapsuleGeometry(headR*0.62,headR*1.1,4,8), hairMat);
+  back.position.set(0,-headR*0.75,-headR*0.32);
+  g.add(back);
+  const fringe = new THREE.Mesh(new THREE.SphereGeometry(headR*0.96,14,8,0,Math.PI*2,0,Math.PI*0.28), hairMat);
+  fringe.position.set(0, headR*0.34, headR*0.06);
+  g.add(fringe);
+}
+function addHair_short(g, hairMat, headR){
+  // Simple neat short hair, slightly textured on top
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(headR*1.03,14,11,0,Math.PI*2,0,Math.PI*0.52), hairMat);
+  cap.position.y = headR*0.16;
+  g.add(cap);
+  for (let i=0;i<5;i++){
+    const a = (i/5)*Math.PI*2;
+    const tuft = new THREE.Mesh(new THREE.ConeGeometry(headR*0.18,headR*0.3,5), hairMat);
+    tuft.position.set(Math.cos(a)*headR*0.55, headR*0.62, Math.sin(a)*headR*0.55);
+    tuft.rotation.x = Math.random()*0.4-0.2;
+    tuft.rotation.z = Math.random()*0.4-0.2;
+    g.add(tuft);
+  }
+}
 
-function makeAvatar(member, seatType){
+function addHairstyle(headGroup, style, hairMat, headR, accentColor){
+  if (style==='bob')        addHair_bob(headGroup, hairMat, headR);
+  else if (style==='cap')   addHair_cap(headGroup, hairMat, headR, accentColor);
+  else if (style==='curls') addHair_curls(headGroup, hairMat, headR);
+  else if (style==='long')  addHair_long(headGroup, hairMat, headR);
+  else                      addHair_short(headGroup, hairMat, headR);
+}
+
+function makeAvatar(member, seatType, idx){
   const g = new THREE.Group();
-  const accent = new THREE.Color(member.color);
-  const skinMat = new THREE.MeshStandardMaterial({ color: skinTone(), flatShading:true, roughness:0.8 });
-  const clothMat = new THREE.MeshStandardMaterial({ color: accent, flatShading:true, roughness:0.85 });
-  const hairMat = new THREE.MeshStandardMaterial({ color: 0x2a1f1a, flatShading:true, roughness:0.9 });
+  const accent   = new THREE.Color(member.color);
+  const skinCol  = SKIN_TONES[idx % SKIN_TONES.length];
+  const hairCol  = HAIR_COLORS[idx % HAIR_COLORS.length];
+  const style    = HAIRSTYLES[idx % HAIRSTYLES.length];
+  const skinMat  = new THREE.MeshStandardMaterial({color:skinCol, flatShading:false, roughness:0.7});
+  const clothMat = new THREE.MeshStandardMaterial({color:accent,  flatShading:false, roughness:0.78});
+  const darkClothMat = new THREE.MeshStandardMaterial({
+    color:accent.clone().lerp(new THREE.Color(0x000000),0.45), flatShading:false, roughness:0.85
+  });
+  const hairMat  = new THREE.MeshStandardMaterial({color:hairCol, flatShading:false, roughness:0.82});
+  const shoeMat  = new THREE.MeshStandardMaterial({color:0x1a1a22, flatShading:false, roughness:0.85});
 
-  const sitY = seatType==='lowchair' ? 0.32 : (seatType==='stump' ? 0.42 : 0.5);
+  const sitY = seatType==='lowchair' ? 0.30 : (seatType==='stump' ? 0.41 : 0.49);
+  const HEAD_R = 0.225; // bigger chibi head for that rounder, cuter proportion
 
-  // torso
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.22,0.32,4,8), clothMat);
-  torso.position.y = sitY + 0.28;
+  // ---- Torso: shorter + rounder so the head dominates the silhouette ----
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.205,0.22,6,10), clothMat);
+  torso.position.set(0, sitY + 0.245, 0.02);
+  torso.rotation.x = 0.12; // gentle forward lean toward the fire
   torso.castShadow = true;
   g.add(torso);
 
-  // head
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2,16,16), skinMat);
-  head.position.y = sitY + 0.62;
+  // Soft rounded collar/hood detail
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.13,0.045,8,12), clothMat);
+  collar.position.set(0, sitY+0.41, 0.06);
+  collar.rotation.x = Math.PI/2 + 0.12;
+  g.add(collar);
+
+  // ---- Head group (everything head-related parented here) ----
+  const headGroup = new THREE.Group();
+  headGroup.position.set(0, sitY + 0.62, 0.03);
+  headGroup.rotation.x = 0.1; // slight downward tilt, looking at the fire
+  g.add(headGroup);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(HEAD_R,20,18), skinMat);
   head.castShadow = true;
-  g.add(head);
+  headGroup.add(head);
 
-  // hair cap
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.21,16,12,0,Math.PI*2,0,Math.PI*0.62), hairMat);
-  hair.position.y = sitY + 0.65;
-  g.add(hair);
-
-  // arms (resting on lap, bent)
+  // Rounded chibi cheeks (subtle)
   [-1,1].forEach(side=>{
-    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.07,0.22,4,6), clothMat);
-    upper.position.set(0.26*side, sitY+0.32, 0.06);
-    upper.rotation.z = side * 0.5;
+    const cheek = new THREE.Mesh(new THREE.SphereGeometry(HEAD_R*0.22,8,8), skinMat);
+    cheek.position.set(side*HEAD_R*0.62, -HEAD_R*0.18, HEAD_R*0.72);
+    headGroup.add(cheek);
+  });
+
+  // Small simple nose
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(HEAD_R*0.1,6,6), skinMat);
+  nose.position.set(0, -HEAD_R*0.04, HEAD_R*0.98);
+  headGroup.add(nose);
+
+  // Big friendly eyes (chibi-style)
+  const eyeMat  = new THREE.MeshStandardMaterial({color:0x18141c, roughness:0.4});
+  const eyeWMat = new THREE.MeshStandardMaterial({color:0xfdf8f0, roughness:0.5});
+  const glintMat= new THREE.MeshStandardMaterial({color:0xffffff, emissive:0xffffff, emissiveIntensity:0.6});
+  [-1,1].forEach(side=>{
+    const eyeW = new THREE.Mesh(new THREE.SphereGeometry(HEAD_R*0.16,10,10), eyeWMat);
+    eyeW.position.set(side*HEAD_R*0.36, HEAD_R*0.02, HEAD_R*0.88);
+    headGroup.add(eyeW);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(HEAD_R*0.095,10,10), eyeMat);
+    eye.position.set(side*HEAD_R*0.36, HEAD_R*0.0, HEAD_R*0.96);
+    headGroup.add(eye);
+    const glint = new THREE.Mesh(new THREE.SphereGeometry(HEAD_R*0.03,6,6), glintMat);
+    glint.position.set(side*HEAD_R*0.36+HEAD_R*0.04, HEAD_R*0.05, HEAD_R*1.0);
+    headGroup.add(glint);
+  });
+
+  // Small rosy blush marks (warm firelight look)
+  const blushMat = new THREE.MeshStandardMaterial({color:0xe8836a, transparent:true, opacity:0.35});
+  [-1,1].forEach(side=>{
+    const blush = new THREE.Mesh(new THREE.SphereGeometry(HEAD_R*0.14,8,8), blushMat);
+    blush.position.set(side*HEAD_R*0.58, -HEAD_R*0.22, HEAD_R*0.78);
+    blush.scale.set(1,0.6,0.4);
+    headGroup.add(blush);
+  });
+
+  // Hair, styled per-person
+  addHairstyle(headGroup, style, hairMat, HEAD_R, accent);
+
+  // ---- Arms, relaxed toward the fire / resting on knees ----
+  [-1,1].forEach(side=>{
+    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.062,0.2,4,8), clothMat);
+    upper.position.set(0.225*side, sitY+0.28, 0.07);
+    upper.rotation.z = side*0.48;
+    upper.rotation.x = 0.22;
     upper.castShadow = true;
     g.add(upper);
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.075,8,8), skinMat);
-    hand.position.set(0.27*side, sitY+0.16, 0.22);
+    const lower = new THREE.Mesh(new THREE.CapsuleGeometry(0.052,0.17,4,7), clothMat);
+    lower.position.set(0.245*side, sitY+0.13, 0.29);
+    lower.rotation.x = 0.78;
+    g.add(lower);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.065,10,10), skinMat);
+    hand.position.set(0.235*side, sitY+0.07, 0.36);
     g.add(hand);
   });
 
-  // legs bent forward (sitting)
+  // ---- Legs bent forward (sitting) ----
   [-1,1].forEach(side=>{
-    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.09,0.32,4,6), clothMat);
-    thigh.rotation.x = Math.PI/2;
-    thigh.position.set(0.13*side, sitY-0.06, 0.18);
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.082,0.28,4,8), darkClothMat);
+    thigh.rotation.x = Math.PI*0.48;
+    thigh.position.set(0.115*side, sitY-0.06, 0.16);
     thigh.castShadow = true;
     g.add(thigh);
-    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.08,0.3,4,6), new THREE.MeshStandardMaterial({color:0x2c2c34, flatShading:true}));
-    shin.position.set(0.13*side, sitY-0.22, 0.36);
-    shin.rotation.x = 0.25;
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.07,0.27,4,7), darkClothMat);
+    shin.position.set(0.115*side, sitY-0.23, 0.37);
+    shin.rotation.x = 0.22;
     shin.castShadow = true;
     g.add(shin);
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.135,0.075,0.21), shoeMat);
+    shoe.position.set(0.115*side, sitY-0.35, 0.47);
+    shoe.castShadow = true;
+    g.add(shoe);
   });
 
-  g.userData.headY = sitY + 0.62;
-  g.userData.member = member;
+  // Optional prop — cup of coffee/marshmallow for some
+  if (idx % 3 === 0){
+    const cupMat = new THREE.MeshStandardMaterial({color:0xcc4422,roughness:0.8});
+    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.035,0.08,8), cupMat);
+    cup.position.set(0.24, sitY+0.07, 0.36);
+    g.add(cup);
+  }
+
+  g.userData.headY   = sitY + 0.62;
+  g.userData.member  = member;
   return g;
 }
 
 const seatGroup = new THREE.Group();
-const avatarMeta = []; // {member, group, headOffset}
-let roomGeneration = 0; // bumped each rebuild so old preview chatter/voice loops stop cleanly
+const avatarMeta = [];
+let roomGeneration = 0;
 
 function buildCamp(){
   roomGeneration++;
   const myGen = roomGeneration;
-
-  // clear old 3D seats/avatars
   seatGroup.clear();
   avatarMeta.length = 0;
-
-  // clear old floating name tags / speech bubbles (otherwise switching
-  // from the preview camp to the real one leaves stale DOM elements behind)
   labelEls.forEach(el => el.remove()); labelEls.clear();
   bubbleEls.forEach(el => el.remove()); bubbleEls.clear();
 
@@ -857,12 +1426,13 @@ function buildCamp(){
     const x = Math.cos(deg(def.angle)) * def.dist;
     const z = Math.sin(deg(def.angle)) * def.dist;
 
-    const seat = buildSeat(def.type, new THREE.Color(member.color).clone().lerp(new THREE.Color(0x222222),0.5));
+    const seatColor = new THREE.Color(member.color).lerp(new THREE.Color(0x181818),0.52);
+    const seat = buildSeat(def.type, seatColor);
     seat.position.set(x,0,z);
     seat.rotation.y = -deg(def.angle) + Math.PI;
     seatGroup.add(seat);
 
-    const avatar = makeAvatar(member, def.type);
+    const avatar = makeAvatar(member, def.type, i);
     avatar.position.set(x,0,z);
     avatar.rotation.y = -deg(def.angle) + Math.PI;
     seatGroup.add(avatar);
@@ -873,12 +1443,12 @@ function buildCamp(){
   return myGen;
 }
 
-/* ============================================================
-   3D -> 2D LABEL PROJECTION (name tags + speech bubbles)
-   ============================================================ */
+/* ================================================================
+   3D → 2D LABEL PROJECTION
+   ================================================================ */
 const labelLayer = document.getElementById('overlay');
-const labelEls = new Map();
-const bubbleEls = new Map();
+const labelEls   = new Map();
+const bubbleEls  = new Map();
 
 function ensureLabel(id, member){
   if (labelEls.has(id)) return labelEls.get(id);
@@ -911,7 +1481,7 @@ function showBubble(id, text){
   el.textContent = text;
   el.classList.add('show');
   clearTimeout(el._t);
-  el._t = setTimeout(()=> el.classList.remove('show'), 3200);
+  el._t = setTimeout(()=> el.classList.remove('show'), 3500);
 }
 
 function setSpeaking(id, on){
@@ -922,111 +1492,99 @@ function setSpeaking(id, on){
 const tmpVec = new THREE.Vector3();
 function updateLabels(){
   avatarMeta.forEach(({member, avatar}) => {
-    const el = ensureLabel(member.id, member);
-    tmpVec.set(0, avatar.userData.headY + 0.28, 0).add(avatar.position);
+    const el  = ensureLabel(member.id, member);
+    tmpVec.set(0, avatar.userData.headY + 0.3, 0).add(avatar.position);
     tmpVec.project(camera);
     const x = (tmpVec.x*0.5+0.5) * window.innerWidth;
-    const y = (1 - (tmpVec.y*0.5+0.5)) * window.innerHeight;
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
+    const y = (1-(tmpVec.y*0.5+0.5)) * window.innerHeight;
+    el.style.left    = x + 'px';
+    el.style.top     = y + 'px';
     el.style.display = tmpVec.z > 1 ? 'none' : 'flex';
-
     const bEl = bubbleEls.get(member.id);
-    if (bEl){
-      bEl.style.left = x + 'px';
-      bEl.style.top = (y - 26) + 'px';
-    }
+    if (bEl){ bEl.style.left=x+'px'; bEl.style.top=(y-28)+'px'; }
   });
 }
 
-/* ============================================================
+/* ================================================================
    CHAT
-   ============================================================ */
+   ================================================================ */
 const chatLog = document.getElementById('chat-log');
 function timeNow(){
-  const d = new Date();
-  return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
 }
 function pushMessage({who, color, text, system}){
   const row = document.createElement('div');
   row.className = 'msg' + (system ? ' system' : '');
-  if (system){
-    row.textContent = text;
-  } else {
-    row.innerHTML = `<span class="who" style="color:${color}">${who}</span>${text}<span class="time">${timeNow()}</span>`;
-  }
+  if (system){ row.textContent = text; }
+  else { row.innerHTML = `<span class="who" style="color:${color}">${who}</span>${text}<span class="time">${timeNow()}</span>`; }
   chatLog.appendChild(row);
   chatLog.scrollTop = chatLog.scrollHeight;
 }
-
 function broadcastMessage(member, text){
-  pushMessage({ who: member.name, color: member.color, text });
+  pushMessage({who:member.name, color:member.color, text});
   showBubble(member.id, text);
 }
 
 document.getElementById('send-btn').addEventListener('click', sendMyMessage);
 document.getElementById('msg-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') sendMyMessage();
+  if (e.key==='Enter') sendMyMessage();
 });
 function sendMyMessage(){
   const input = document.getElementById('msg-input');
-  const text = input.value.trim();
+  const text  = input.value.trim();
   if (!text) return;
-  const me = ROOM.members.find(m => m.isYou);
-  broadcastMessage(me, text);
   input.value = '';
-  sendChatOverSocket(text); // relays to other real members via the backend when connected
+
+  if (ws && ws.readyState === WebSocket.OPEN){
+    // Real backend: server broadcasts the chat back to the whole camp
+    // (including us), so we don't render locally here — wait for the
+    // echo via handleIncomingChat to avoid showing it twice.
+    sendChatOverSocket(text);
+  } else {
+    // Demo / no backend: nothing will echo back, so render immediately.
+    const me = ROOM.members.find(m => m.isYou);
+    if (me) broadcastMessage(me, text);
+  }
 }
 
-// scripted demo chatter so the camp feels alive when running standalone
-// (also used for the pre-join background preview). `gen` stops this loop
-// automatically once buildCamp() runs again for a newer room.
+/* Demo chatter */
 function startDemoChatter(gen){
   const lines = [
-    'hey all! 👋','where is everyone from?','this fire is cozy','anyone else hear that owl 🦉',
-    'love this spot','what time is it for you all?','passing the marshmallows 🍡','good vibes tonight'
+    'hey all 👋','where is everyone from?','this fire is so cozy 🔥',
+    'anyone else hear that owl 🦉','love this spot','what time is it for you?',
+    'passing the marshmallows 🍡','good vibes tonight','this mountain view though ✨',
+    'ok who brought the guitar?','stars are incredible tonight'
   ];
   let i = 0;
   const others = ROOM.members.filter(m => !m.isYou);
   function tick(){
-    if (gen !== roomGeneration) return; // a newer room took over, stop here
-    if (i >= Math.min(others.length+2, lines.length)) {
-      // loop the chatter softly so a long-idle preview camp stays alive
-      i = 0;
-      setTimeout(tick, 4000 + Math.random()*3000);
-      return;
-    }
+    if (gen !== roomGeneration) return;
+    if (i >= lines.length) { i=0; setTimeout(tick, 5000+Math.random()*3000); return; }
     const member = others[i % others.length];
-    if (member) broadcastMessage(member, lines[i % lines.length]);
+    if (member) broadcastMessage(member, lines[i%lines.length]);
     i++;
-    setTimeout(tick, 1800 + Math.random()*2200);
+    setTimeout(tick, 2000+Math.random()*2600);
   }
-  setTimeout(tick, 1200);
+  setTimeout(tick, 1400);
 }
 
-/* ============================================================
-   VOICE (WebRTC) — peer-to-peer mic toggle.
-   Production note: real multi-peer signaling needs your own
-   signaling server (WebSocket) to exchange SDP/ICE between the
-   5 members of a camp. Mic capture + toggle works standalone;
-   wire `sendSignal()` / `onSignal()` to your backend to go live.
-   ============================================================ */
+/* ================================================================
+   VOICE (WebRTC)
+   ================================================================ */
 let micOn = false, localStream = null;
-const micBtn = document.getElementById('mic-btn');
+const micBtn     = document.getElementById('mic-btn');
 const speakerBtn = document.getElementById('speaker-btn');
 
 micBtn.addEventListener('click', async () => {
   if (!micOn){
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+      localStream = await navigator.mediaDevices.getUserMedia({audio:true});
       micOn = true;
       micBtn.classList.add('active'); micBtn.classList.remove('off');
       const me = ROOM.members.find(m => m.isYou);
       if (me) setSpeaking(me.id, true);
       monitorMic();
-    } catch(e){
-      pushMessage({system:true, text:'Microphone permission denied.'});
-    }
+    } catch(e){ pushMessage({system:true,text:'Microphone permission denied.'}); }
   } else {
     if (localStream) localStream.getTracks().forEach(t=>t.stop());
     micOn = false;
@@ -1051,7 +1609,7 @@ function monitorMic(){
   analyser.fftSize = 512;
   src.connect(analyser);
   const data = new Uint8Array(analyser.frequencyBinCount);
-  const me = ROOM.members.find(m => m.isYou);
+  const me   = ROOM.members.find(m => m.isYou);
   function loop(){
     if (!micOn) return;
     analyser.getByteFrequencyData(data);
@@ -1062,39 +1620,29 @@ function monitorMic(){
   loop();
 }
 
-// ambient simulated speaking bars for demo companions (used standalone
-// and for the pre-join preview camp). Stops once a newer room is built.
 function simulateAmbientVoice(gen){
   ROOM.members.filter(m=>!m.isYou).forEach(m=>{
     function pulse(){
-      if (gen !== roomGeneration) return;
+      if (gen!==roomGeneration) return;
       setSpeaking(m.id, true);
-      setTimeout(()=> { if (gen === roomGeneration) setSpeaking(m.id, false); }, 900 + Math.random()*1400);
-      setTimeout(pulse, 4000 + Math.random()*6000);
+      setTimeout(()=>{ if(gen===roomGeneration) setSpeaking(m.id,false); }, 900+Math.random()*1600);
+      setTimeout(pulse, 4500+Math.random()*7000);
     }
-    setTimeout(pulse, 1500 + Math.random()*3000);
+    setTimeout(pulse, 2000+Math.random()*4000);
   });
 }
 
-/* ============================================================
-   AMBIENT SOUND — your own hosted recording.
-   ⚠️ REPLACE THE src BELOW with the real URL of the file you
-   hosted (e.g. "/static/audio/campfire-ambience.mp3" on your
-   Django server, or an S3/CDN URL). A Jumpshare *share page* link
-   can't be used directly here — it's a player page, not a raw
-   file URL, so the browser can't stream it as <audio src="...">.
-   Once you swap in the real file URL this just works.
-   Browsers block audio until a user gesture, so playback starts
-   on the Join click and can be muted any time with the note button.
-   ============================================================ */
+/* ================================================================
+   AMBIENT SOUND
+   ================================================================ */
 const ambienceAudio = document.getElementById('ambience-audio');
-ambienceAudio.volume = 0.55;
+ambienceAudio.volume = 0.5;
 let ambienceStarted = false;
 
 function initAmbience(){
   if (ambienceStarted) return;
   ambienceStarted = true;
-  ambienceAudio.play().catch(e => console.warn('Ambience playback blocked:', e));
+  ambienceAudio.play().catch(e=>console.warn('Ambience blocked:',e));
 }
 
 const ambientBtn = document.getElementById('ambient-btn');
@@ -1113,51 +1661,47 @@ ambientBtn.addEventListener('click', () => {
   }
 });
 
-/* ============================================================
+/* ================================================================
    LEAVE / COPY
-   ============================================================ */
+   ================================================================ */
 document.getElementById('leave-btn').addEventListener('click', () => {
   if (localStream) localStream.getTracks().forEach(t=>t.stop());
   if (ws) ws.close();
   if (tg && tg.close) tg.close();
-  else pushMessage({system:true, text:'Left the camp.'});
+  else pushMessage({system:true,text:'Left the camp.'});
 });
-
 document.getElementById('copy-btn').addEventListener('click', () => {
-  navigator.clipboard?.writeText(ROOM.id || '').then(()=>{
-    pushMessage({system:true, text:'Camp ID copied.'});
-  });
+  navigator.clipboard?.writeText(ROOM.id||'').then(()=>pushMessage({system:true,text:'Camp ID copied.'}));
 });
 
-/* ============================================================
+/* ================================================================
    JOIN FLOW
-   Tries the real backend first (connectWebSocket). If it can't
-   reach one within a few seconds, falls back to a local simulated
-   camp so the demo is still fully alive on its own.
-   ============================================================ */
-const joinBtn = document.getElementById('join-btn');
+   ================================================================ */
+const joinBtn   = document.getElementById('join-btn');
 const joinLabel = document.getElementById('join-label');
 
 async function handleJoin(){
   joinBtn.disabled = true;
   joinLabel.textContent = 'Connecting…';
-  initAmbience(); // first real user gesture — safe to start audio here
-  chatLog.innerHTML = ''; // clear the preview chatter, fresh start for the real session
+  initAmbience();
+  chatLog.innerHTML = '';
 
   const ok = await connectWebSocket();
   let gen;
   if (!ok){
     applyRoomState(simulateRoom());
     gen = buildCamp();
-    pushMessage({system:true, text:`You joined ${ROOM.id} (local demo mode — no backend reachable)`});
+    pushMessage({system:true, text:`You joined ${ROOM.id} (demo mode — no backend)`});
     ROOM.members.filter(m=>!m.isYou).forEach((m,i)=>{
-      setTimeout(()=> pushMessage({system:true, text:`${m.name} joined the camp`}), 300*(i+1));
+      setTimeout(()=>pushMessage({system:true,text:`${m.name} joined the camp`}), 350*(i+1));
     });
     startDemoChatter(gen);
     simulateAmbientVoice(gen);
   } else {
-    gen = buildCamp();
-    pushMessage({system:true, text:`You joined ${ROOM.id}`});
+    // Real backend: the 'user_joined' broadcast already triggered
+    // applyUserJoined(), which rebuilt the camp and pushed the
+    // appropriate join message. Nothing further needed here.
+    gen = roomGeneration;
   }
 
   connected = true;
@@ -1169,18 +1713,12 @@ async function handleJoin(){
 }
 joinBtn.addEventListener('click', handleJoin);
 
-/* ============================================================
-   BOOT SEQUENCE — registers with the backend (so it can verify
-   the Telegram user and we can greet them by name on the Join
-   button), then immediately populates the campfire with a demo
-   crowd chatting in the background so it never looks empty while
-   waiting for the real Join. Actually joining a real camp happens
-   only when the person taps Join.
-   ============================================================ */
+/* ================================================================
+   BOOT
+   ================================================================ */
 async function boot(){
-  if (typeof THREE === 'undefined') {
-    document.querySelector('#boot-screen .label').textContent =
-      '3D library failed to load — check your internet connection and reload.';
+  if (typeof THREE === 'undefined'){
+    document.querySelector('#boot-screen .label').textContent = '3D library failed to load.';
     document.querySelector('#boot-screen .flame').textContent = '⚠️';
     return;
   }
@@ -1194,63 +1732,95 @@ async function boot(){
   simulateAmbientVoice(gen);
 
   document.getElementById('boot-screen').style.opacity = '0';
-  setTimeout(()=> document.getElementById('boot-screen').style.display='none', 500);
+  setTimeout(()=>{ document.getElementById('boot-screen').style.display='none'; }, 600);
 }
 
-/* ============================================================
-   CAMERA — auto-revolves slowly while waiting at the Join screen;
-   stops once connected to a real camp, but the person can always
-   drag/swipe to look around manually, any time.
-   ============================================================ */
+/* ================================================================
+   CAMERA
+   ================================================================ */
 let orbitAngle = 0;
 let autoRotate = true;
-let isDragging = false;
-let dragStartX = 0, dragStartAngle = 0;
+let isDragging = false, dragStartX = 0, dragStartAngle = 0;
 
 canvas.style.cursor = 'grab';
-canvas.addEventListener('pointerdown', e => {
-  isDragging = true;
-  dragStartX = e.clientX;
-  dragStartAngle = orbitAngle;
-  canvas.style.cursor = 'grabbing';
-  canvas.setPointerCapture(e.pointerId);
+canvas.addEventListener('pointerdown', e=>{
+  isDragging=true; dragStartX=e.clientX; dragStartAngle=orbitAngle;
+  canvas.style.cursor='grabbing'; canvas.setPointerCapture(e.pointerId);
 });
-window.addEventListener('pointermove', e => {
+window.addEventListener('pointermove', e=>{
   if (!isDragging) return;
-  const dx = e.clientX - dragStartX;
-  orbitAngle = dragStartAngle + dx * 0.006;
+  orbitAngle = dragStartAngle + (e.clientX-dragStartX)*0.006;
 });
-window.addEventListener('pointerup', () => {
-  isDragging = false;
-  canvas.style.cursor = 'grab';
-});
+window.addEventListener('pointerup', ()=>{ isDragging=false; canvas.style.cursor='grab'; });
 
-/* ============================================================
+/* ================================================================
    RENDER LOOP
-   ============================================================ */
+   ================================================================ */
 const clock = new THREE.Clock();
+let   time  = 0;
+
 function animate(){
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
-  const t = clock.elapsedTime;
+  time += dt;
 
-  flames.forEach(f=>{
-    f.position.y = 0.1 + ((t*f.userData.speed + f.userData.offset) % 1) * 0.9;
-    const fade = 1 - ((t*f.userData.speed + f.userData.offset) % 1);
-    f.material.opacity = fade;
-    f.scale.x = f.scale.y * (0.5 + 0.3*Math.sin(t*8+f.userData.offset));
+  /* Enhanced fire animation */
+  flames.forEach(f => {
+    const phase = (time * f.userData.speed + f.userData.offset);
+    const cyclePos = phase % 1.0;
+
+    // Y rises then resets
+    f.position.y = f.userData.yBase + cyclePos * f.userData.yHeight;
+
+    // Opacity: bright at bottom, fade at top
+    const fade = Math.pow(1 - cyclePos, 1.4);
+    f.material.opacity = fade * (f.userData.isCore ? 0.95 : 0.72);
+
+    // Lateral sway
+    f.position.x = f.userData.xSwing * Math.sin(time * 3.2 + f.userData.offset);
+
+    // Scale flicker
+    const flicker = 0.88 + 0.24*Math.sin(time*11.5 + f.userData.offset*2.3);
+    f.scale.set(f.userData.sc * flicker, f.userData.sc * 1.5, 1);
   });
-  fireLight.intensity = 3.6 + Math.sin(t*14)*0.5 + Math.random()*0.2;
-  lanternLight.intensity = 1.0 + Math.sin(t*3)*0.08;
 
-  // auto-revolve only while not connected (and not being dragged);
-  // manual drag always works, connected or not
-  if (autoRotate && !isDragging) orbitAngle += dt * 0.05;
-  const radius = 11.8;
-  camera.position.x = Math.sin(orbitAngle) * radius;
-  camera.position.z = Math.cos(orbitAngle) * radius;
+  /* Ember particles */
+  const pos = embers.geometry.attributes.position;
+  for (let i=0;i<EMBER_COUNT;i++){
+    const e = emberData[i];
+    e.life += dt;
+    if (e.life > e.maxLife){
+      e.x = (Math.random()-0.5)*0.5;
+      e.y = 0.2 + Math.random()*0.3;
+      e.z = (Math.random()-0.5)*0.5;
+      e.vx = (Math.random()-0.5)*0.007;
+      e.vy = 0.01 + Math.random()*0.016;
+      e.vz = (Math.random()-0.5)*0.007;
+      e.life = 0;
+      e.maxLife = 0.6 + Math.random()*1.6;
+    }
+    e.x += e.vx; e.y += e.vy; e.z += e.vz;
+    e.vy -= dt * 0.003; // slight deceleration
+    pos.setXYZ(i, e.x, e.y, e.z);
+  }
+  pos.needsUpdate = true;
+
+  /* Fire lights flicker */
+  fireLight.intensity  = 4.8 + Math.sin(time*16)*0.8 + Math.sin(time*7.3)*0.5 + (Math.random()-0.5)*0.35;
+  fireFill.intensity   = 1.5 + Math.sin(time*9)*0.4;
+  lanternLight.intensity= 0.85 + Math.sin(time*2.8)*0.09;
+
+  /* Glow halo pulse */
+  const glowPulse = 0.92 + 0.1*Math.sin(time*5.2);
+  glowSpr.scale.set(5.5*glowPulse, 4.5*glowPulse, 1);
+
+  /* Camera orbit */
+  if (autoRotate && !isDragging) orbitAngle += dt * 0.044;
+  const R = 12;
+  camera.position.x = Math.sin(orbitAngle) * R;
+  camera.position.z = Math.cos(orbitAngle) * R;
   camera.position.y = 9;
-  camera.lookAt(0,0.6,0);
+  camera.lookAt(0, 0.6, 0);
 
   updateLabels();
   renderer.render(scene, camera);
@@ -1258,7 +1828,6 @@ function animate(){
 
 boot();
 animate();
-
 </script>
 </body>
 </html>
