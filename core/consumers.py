@@ -89,6 +89,8 @@ class CampfireConsumer(WebsocketConsumer):
             # CRITICAL: Check if user_data is actually a dictionary
             if user_data and isinstance(user_data, dict):
                 self.tgID = user_data.get('id')
+                if user_data.get('username') is None or user_data.get('username') == "":
+                    self.username = f"User{self.tgID}"
                 self.username = user_data.get('username')
                 self.first_name = user_data.get('first_name')
                 if len(campid)==0:
