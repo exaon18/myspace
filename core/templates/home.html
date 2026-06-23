@@ -438,6 +438,27 @@ function applyUserJoined(data){
   }
 }
 
+/* ================================================================
+   USER LEFT — fired when someone disconnects or leaves the camp:
+     { type:'user_left', message, user, camp_id }
+   We drop them from the roster, rebuild the seats so their avatar
+   disappears immediately, and tear down any audio/speaking state
+   tied to them so nothing keeps referencing a member who's gone.
+   ================================================================ */
+function applyUserLeft(data){
+  const leavingUser = data.user;
+  if (leavingUser){
+    knownMembersByUsername.delete(leavingUser);
+    ROOM.members = ROOM.members.filter(m => m.id !== leavingUser);
+    document.getElementById('people-count').textContent = `${ROOM.members.length}/5`;
+    teardownRemoteAudioPlayer(leavingUser);
+  }
+
+  buildCamp(); // re-render seats so the departed member's avatar disappears
+
+  pushMessage({ system:true, text: data.message || `${leavingUser} left the camp` });
+}
+
 function handleIncomingChat(data){
   const username = data.user;
   if (!username) return;
@@ -476,6 +497,7 @@ function connectWebSocket(){
     let socket;
     try { socket = new WebSocket(wsUrl()); } catch(e){ finish(false); return; }
     ws = socket;
+    ws.binaryType = 'arraybuffer'; // mic audio chunks arrive as ArrayBuffer, ready for MediaSource
 
     socket.addEventListener('open', () => {
       // No payload sent here on purpose — auth travels entirely via the
@@ -484,6 +506,14 @@ function connectWebSocket(){
     });
 
     socket.addEventListener('message', evt => {
+      // Binary frames are raw mic audio chunks from another camper —
+      // never JSON. Route them to the per-speaker playback pipeline
+      // and stop here.
+      if (evt.data instanceof Blob || evt.data instanceof ArrayBuffer){
+        handleIncomingAudioChunk(evt.data);
+        return;
+      }
+
       let data;
       try { data = JSON.parse(evt.data); } catch(e){ return; }
 
@@ -492,8 +522,10 @@ function connectWebSocket(){
         finish(true);
       } else if (data.type === 'chat'){
         handleIncomingChat(data);
-      } else if (data.type === 'member_left' || data.type === 'user_left'){
-        pushMessage({ system:true, text:`${data.name || data.user} left the camp` });
+      } else if (data.type === 'user_left' || data.type === 'member_left'){
+        applyUserLeft(data);
+      } else if (data.type === 'mic_status'){
+        handleRemoteMicStatus(data);
       } else if (data.type === 'speaking'){
         setSpeaking(data.memberId, !!data.on);
       } else if (data.type === 'error'){
@@ -511,6 +543,11 @@ function connectWebSocket(){
         document.getElementById('join-label').textContent = 'Rejoin the Campfire';
         document.getElementById('join-btn').disabled = false;
       }
+      stopStreamingMic();
+      if (localStream) localStream.getTracks().forEach(t=>t.stop());
+      micOn = false;
+      micBtn.classList.remove('active'); micBtn.classList.add('off');
+      remoteAudioPlayers.forEach((_, username) => teardownRemoteAudioPlayer(username));
       finish(false);
     });
 
@@ -1569,11 +1606,36 @@ function startDemoChatter(gen){
 }
 
 /* ================================================================
-   VOICE (WebRTC)
+   VOICE — REAL MIC CAPTURE + STREAMING
+   On mic press: tell the backend {type:'mic_status', status:true,
+   user:myUsername}, then start a MediaRecorder that emits raw binary
+   chunks every 100ms straight over the WebSocket.
+   On mic release: send the same message with status:false and stop
+   recording.
    ================================================================ */
-let micOn = false, localStream = null;
+let micOn = false, localStream = null, mediaRecorder = null;
 const micBtn     = document.getElementById('mic-btn');
 const speakerBtn = document.getElementById('speaker-btn');
+
+// Pick a mimeType the browser's MediaRecorder actually supports.
+function pickRecorderMime(){
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/mp4',
+  ];
+  for (const c of candidates){
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) return c;
+  }
+  return ''; // let the browser choose its default
+}
+
+function sendMicStatus(status){
+  if (ws && ws.readyState === WebSocket.OPEN){
+    ws.send(JSON.stringify({ type:'mic_status', status, user:myUsername }));
+  }
+}
 
 micBtn.addEventListener('click', async () => {
   if (!micOn){
@@ -1583,9 +1645,14 @@ micBtn.addEventListener('click', async () => {
       micBtn.classList.add('active'); micBtn.classList.remove('off');
       const me = ROOM.members.find(m => m.isYou);
       if (me) setSpeaking(me.id, true);
+
+      sendMicStatus(true); // tell backend we're now speaking, before streaming bytes
+      startStreamingMic();
       monitorMic();
     } catch(e){ pushMessage({system:true,text:'Microphone permission denied.'}); }
   } else {
+    stopStreamingMic();
+    sendMicStatus(false); // tell backend we've stopped speaking
     if (localStream) localStream.getTracks().forEach(t=>t.stop());
     micOn = false;
     micBtn.classList.remove('active'); micBtn.classList.add('off');
@@ -1594,11 +1661,44 @@ micBtn.addEventListener('click', async () => {
   }
 });
 
+function startStreamingMic(){
+  if (!localStream || !window.MediaRecorder) return;
+  const mimeType = pickRecorderMime();
+  try {
+    mediaRecorder = mimeType
+      ? new MediaRecorder(localStream, { mimeType })
+      : new MediaRecorder(localStream);
+  } catch(e){
+    console.warn('MediaRecorder failed to start:', e);
+    return;
+  }
+
+  mediaRecorder.addEventListener('dataavailable', evt => {
+    if (!evt.data || evt.data.size === 0) return;
+    if (!(ws && ws.readyState === WebSocket.OPEN)) return;
+    // Send the raw binary chunk as-is — the backend forwards it to
+    // everyone else in the camp, who decode/play it on arrival.
+    evt.data.arrayBuffer().then(buf => {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(buf);
+    }).catch(()=>{});
+  });
+
+  mediaRecorder.start(100); // emit a chunk every 100ms
+}
+
+function stopStreamingMic(){
+  if (mediaRecorder && mediaRecorder.state !== 'inactive'){
+    try { mediaRecorder.stop(); } catch(e){}
+  }
+  mediaRecorder = null;
+}
+
 let speakerOn = true;
 speakerBtn.addEventListener('click', () => {
   speakerOn = !speakerOn;
   speakerBtn.classList.toggle('active', speakerOn);
   speakerBtn.classList.toggle('off', !speakerOn);
+  applySpeakerMuteState();
 });
 
 function monitorMic(){
@@ -1618,6 +1718,127 @@ function monitorMic(){
     requestAnimationFrame(loop);
   }
   loop();
+}
+
+/* ================================================================
+   VOICE — RECEIVING REMOTE AUDIO
+   Each remote speaker gets one persistent MediaSource-backed <audio>
+   element. Incoming binary chunks are appended to that speaker's
+   SourceBuffer, which is the correct way to play a continuous stream
+   of MediaRecorder chunks (chunks after the first are NOT
+   independently decodable files on their own).
+
+   SENDER IDENTIFICATION: the raw mic bytes a browser records carry
+   no metadata, so the *backend* tags every relayed binary frame with
+   a tiny self-describing header before forwarding it:
+
+       [ 1 byte: username length N ][ N bytes: UTF-8 username ][ ...audio bytes ]
+
+   The frontend strips that header off every incoming binary frame to
+   find out who it belongs to, then feeds the remaining bytes to that
+   user's player. This makes playback correct regardless of whether
+   mic_status arrives before/after/concurrently with the audio — it
+   doesn't depend on a side-channel "who's currently speaking" guess.
+   mic_status is still used (below) purely to drive the UI "speaking"
+   bars and to warm up a player before the first chunk lands.
+
+   See the matching backend snippet at the bottom of this file's
+   accompanying notes for the one-line consumer change this requires.
+   ================================================================ */
+const remoteAudioPlayers = new Map(); // username -> { audioEl, mediaSource, sourceBuffer, queue }
+const RECORDER_MIME_GUESS = 'audio/webm;codecs=opus';
+
+function ensureRemoteAudioPlayer(username){
+  if (remoteAudioPlayers.has(username)) return remoteAudioPlayers.get(username);
+
+  const audioEl = new Audio();
+  audioEl.autoplay = true;
+  audioEl.muted = !speakerOn;
+
+  const entry = { audioEl, mediaSource:null, sourceBuffer:null, queue:[], ready:false };
+
+  if (window.MediaSource && MediaSource.isTypeSupported && MediaSource.isTypeSupported(RECORDER_MIME_GUESS)){
+    const ms = new MediaSource();
+    entry.mediaSource = ms;
+    audioEl.src = URL.createObjectURL(ms);
+    ms.addEventListener('sourceopen', () => {
+      try {
+        const sb = ms.addSourceBuffer(RECORDER_MIME_GUESS);
+        entry.sourceBuffer = sb;
+        entry.ready = true;
+        sb.addEventListener('updateend', () => flushRemoteAudioQueue(username));
+        flushRemoteAudioQueue(username);
+      } catch(e){ console.warn('Could not open SourceBuffer for', username, e); }
+    });
+  } else {
+    console.warn('MediaSource + opus/webm not supported in this browser — remote voice playback unavailable.');
+  }
+
+  remoteAudioPlayers.set(username, entry);
+  return entry;
+}
+
+function flushRemoteAudioQueue(username){
+  const entry = remoteAudioPlayers.get(username);
+  if (!entry || !entry.sourceBuffer) return;
+  if (entry.sourceBuffer.updating) return;
+  const next = entry.queue.shift();
+  if (next) {
+    try { entry.sourceBuffer.appendBuffer(next); } catch(e){ /* drop chunk on error */ }
+  }
+}
+
+function feedRemoteAudio(username, arrayBuffer){
+  const entry = ensureRemoteAudioPlayer(username);
+  if (!entry.sourceBuffer){
+    entry.queue.push(arrayBuffer);
+    return;
+  }
+  entry.queue.push(arrayBuffer);
+  flushRemoteAudioQueue(username);
+}
+
+function teardownRemoteAudioPlayer(username){
+  const entry = remoteAudioPlayers.get(username);
+  if (!entry) return;
+  try { entry.audioEl.pause(); } catch(e){}
+  try { if (entry.mediaSource && entry.mediaSource.readyState === 'open') entry.mediaSource.endOfStream(); } catch(e){}
+  remoteAudioPlayers.delete(username);
+}
+
+function applySpeakerMuteState(){
+  remoteAudioPlayers.forEach(entry => { entry.audioEl.muted = !speakerOn; });
+}
+
+// Called whenever a binary WS frame arrives. Strips the
+// [length][username][audio bytes] header the backend attaches and
+// routes the remaining audio bytes to that specific user's player.
+function handleIncomingAudioChunk(rawData){
+  const buf = rawData instanceof ArrayBuffer ? rawData : null;
+  if (!buf || buf.byteLength < 2) return; // too short to contain a header
+
+  const view = new DataView(buf);
+  const nameLen = view.getUint8(0);
+  if (buf.byteLength < 1 + nameLen) return; // malformed/truncated frame — drop it
+
+  const nameBytes = new Uint8Array(buf, 1, nameLen);
+  const username = new TextDecoder('utf-8').decode(nameBytes);
+  const audioBytes = buf.slice(1 + nameLen);
+
+  if (!username || username === myUsername) return; // backend already excludes the sender, but be defensive
+  feedRemoteAudio(username, audioBytes);
+}
+
+// Called on every {type:'mic_status', status, user} from the server.
+// Purely drives the "speaking" bars UI and warms up a player ahead of
+// the first audio chunk — playback itself no longer depends on this.
+function handleRemoteMicStatus(data){
+  const username = data.user;
+  if (!username || username === myUsername) return; // ignore our own echoed status, if any
+  setSpeaking(username, !!data.status);
+  if (data.status){
+    ensureRemoteAudioPlayer(username);
+  }
 }
 
 function simulateAmbientVoice(gen){
@@ -1665,7 +1886,9 @@ ambientBtn.addEventListener('click', () => {
    LEAVE / COPY
    ================================================================ */
 document.getElementById('leave-btn').addEventListener('click', () => {
+  stopStreamingMic();
   if (localStream) localStream.getTracks().forEach(t=>t.stop());
+  remoteAudioPlayers.forEach((_, username) => teardownRemoteAudioPlayer(username));
   if (ws) ws.close();
   if (tg && tg.close) tg.close();
   else pushMessage({system:true,text:'Left the camp.'});

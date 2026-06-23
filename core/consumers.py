@@ -159,7 +159,19 @@ class CampfireConsumer(WebsocketConsumer):
         # Reject if anything went wrong
         self.close()
    
-    def receive(self, text_data):
+    def receive(self, text_data=None, bytes_data=None):
+        if bytes_data:
+            async_to_sync(self.channel_layer.group_send)(
+                self.camp_id,
+                {
+                    "type": "voice_stream",
+                    "bytes": bytes_data,
+                    "sender_channel": self.channel_name,
+                    'user': self.username
+                }
+            )
+            return
+
         data_type=json.loads(text_data).get('type')
         if data_type=="chat":
             data = json.loads(text_data)
@@ -173,7 +185,26 @@ class CampfireConsumer(WebsocketConsumer):
                     'user': data.get('user'),
                 }
             )
+        elif data_type=="mic_status":
+            data = json.loads(text_data)
+            mic_status=data.get('status')
+            print(f"DEBUG: Received mic status: {mic_status} from user: {self.username} in camp {self.camp_id}")
+            async_to_sync(self.channel_layer.group_send)(
+                self.camp_id,
+                {
+                    "type": "mic_status",
+                    "mic_status": mic_status,
+                    'user': data.get('user'),
+                }
+            )
     def disconnect(self, close_code):
+        async_to_sync(self.channel_layer.group_send)(self.camp_id,
+                                                 {  
+                                                     "type": "user_left",
+                                                     "message": f"{self.username} has left the campfire.",
+                                                     'user': self.username,
+                                                     'camp_id': self.camp_id,
+                                                 })
         pass
 
     def chat(self, event):
@@ -184,6 +215,32 @@ class CampfireConsumer(WebsocketConsumer):
             'type': 'chat',
             'message': message,
             'user': user
+        }))
+    def voice_stream(self, event):
+        if self.channel_name != event["sender_channel"]:
+            
+            username = event["user"]                       # the speaker's username
+            name_bytes = username.encode("utf-8")
+            header = bytes([len(name_bytes)]) + name_bytes  # 1 byte length + UTF-8 name
+            self.send(bytes_data=header + event["bytes"])
+    def mic_status(self, event):
+        mic_status = event["mic_status"]
+        user = event["user"]
+        # Send the mic status to WebSocket
+        self.send(text_data=json.dumps({
+            'type': 'mic_status',
+            'mic_status': mic_status,
+            'user': user
+        }))
+    def user_left(self, event):
+        message = event["message"]
+        print(f"DEBUG: Broadcasting message: {message} to camp {self.camp_id}")
+        # Send the message to WebSocket
+        self.send(text_data=json.dumps({
+            'type': 'user_left',
+            'message': message,
+            'user': event['user'],
+            'camp_id': event['camp_id'],
         }))
     def user_joined(self, event):
         message = event["message"]
