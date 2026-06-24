@@ -4,6 +4,8 @@ import string
 from core.models import Myuser
 from asgiref.sync import async_to_sync
 
+from myspace import settings
+
 def generate_random_code():
     # This generates a string of 6 random digits (0-9)
     return ''.join(secrets.choice(string.digits) for _ in range(6))
@@ -83,8 +85,9 @@ class CampfireConsumer(WebsocketConsumer):
         init_data = query_data.get('initData', [None])[0]
         
         if init_data:
+            print(settings.BOT_APIKEY)
             # VALIDATION: Use your function
-            user_data = verify_telegram_web_app(init_data, "8931595168:AAHSAaKz6ld4OKtb-fkS2C-raUlyevQ_zt8")
+            user_data = verify_telegram_web_app(init_data, settings.BOT_APIKEY)
             
             # CRITICAL: Check if user_data is actually a dictionary
             if user_data and isinstance(user_data, dict):
@@ -200,6 +203,8 @@ class CampfireConsumer(WebsocketConsumer):
                 }
             )
     def disconnect(self, close_code):
+        campstat[self.camp_id]["users"]-=1
+        campstat[self.camp_id]["usernames"].remove(self.username)
         async_to_sync(self.channel_layer.group_send)(self.camp_id,
                                                  {  
                                                      "type": "user_left",
@@ -227,6 +232,7 @@ class CampfireConsumer(WebsocketConsumer):
             self.send(bytes_data=header + event["bytes"])
     def mic_status(self, event):
         mic_status = event["mic_status"]
+        print(f"DEBUG: Broadcasting mic status: {mic_status} to camp {self.camp_id}")
         user = event["user"]
         # Send the mic status to WebSocket
         self.send(text_data=json.dumps({

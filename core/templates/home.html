@@ -1835,8 +1835,8 @@ function handleIncomingAudioChunk(rawData){
 function handleRemoteMicStatus(data){
   const username = data.user;
   if (!username || username === myUsername) return; // ignore our own echoed status, if any
-  setSpeaking(username, !!data.status);
-  if (data.status){
+  setSpeaking(username, !!data.mic_status);
+  if (data.mic_status){
     ensureRemoteAudioPlayer(username);
   }
 }

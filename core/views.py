@@ -62,7 +62,7 @@ def home(request):
         body = json.loads(request.body)
         init_data_string = body.get('initData')
         # Validate data against your BOT_TOKEN from settings
-        user_data = verify_telegram_web_app(init_data_string, "8931595168:AAHSAaKz6ld4OKtb-fkS2C-raUlyevQ_zt8")
+        user_data = verify_telegram_web_app(init_data_string, settings.BOT_APIKEY)
         if not user_data:
             return JsonResponse({'status': 'error', 'message': 'Invalid authentication'}, status=401)
 
