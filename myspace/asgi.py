@@ -13,7 +13,7 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from django.urls import path
 from core.consumers import CampfireConsumer
-from core.middleware import TelegramAuthMiddleware # Safe to import now
+# Safe to import now
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
@@ -21,11 +21,11 @@ application = ProtocolTypeRouter({
     "websocket": 
         # 4. Wrap your router with your custom Telegram auth middleware 
         # (You can nest it inside AuthMiddlewareStack if you still need standard session/user handling)
-        TelegramAuthMiddleware(
+        AuthMiddlewareStack(
             URLRouter([
                 # Matches the frontend ws:// protocols pointing to /ws/campfire/
                 path("wss/campfire/", CampfireConsumer.as_asgi()),
-            ])
-        )
+            ]))
+        
     ,
 })
