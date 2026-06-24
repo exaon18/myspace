@@ -24,7 +24,7 @@ application = ProtocolTypeRouter({
         TelegramAuthMiddleware(
             URLRouter([
                 # Matches the frontend ws:// protocols pointing to /ws/campfire/
-                path("ws/campfire/", CampfireConsumer.as_asgi()),
+                path("wss/campfire/", CampfireConsumer.as_asgi()),
             ])
         )
     ,
