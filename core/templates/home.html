@@ -485,7 +485,7 @@ function wsUrl(){
   if (tgPlatform) params.set('platform', tgPlatform);
   if (tgVersion)  params.set('version', tgVersion);
   const qs = params.toString();
-  return `${proto}${location.host}/ws/campfire/${qs ? '?' + qs : ''}`;
+  return `${proto}${location.host}/wss/campfire/${qs ? '?' + qs : ''}`;
 }
 
 function connectWebSocket(){
