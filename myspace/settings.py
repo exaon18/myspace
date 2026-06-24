@@ -29,7 +29,7 @@ SECRET_KEY = 'django-insecure-z#+zu5px*nwv!m@2-&x#y2#ch-u9ccm98mo=-5r@ergpujf@p1
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['https://myspace-amdb.onrender.com']
 
 
 # Application definition
