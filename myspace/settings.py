@@ -38,7 +38,7 @@ CSRF_TRUSTED_ORIGINS = ['https://myspace-amdb.onrender.com', 'http://myspace-amd
 INSTALLED_APPS = [
     'daphne',
     'django.contrib.admin',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -49,6 +49,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
